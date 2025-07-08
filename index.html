@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Sudokuist - Web Sudoku Game</title>
+	<!-- CSS Reset and Styles -->
+	<link rel="stylesheet" href="/styles/reset.css">
+	<link rel="stylesheet" href="/styles/styles.css">
+</head>
+
+<body>
+	<!-- Start Screen: Initial game selection interface -->
+	<div id="start-screen">
+		<h1>Sudokuist</h1>
+		<div class="button-container">
+			<button id="btn-start" class="game-btn">Start New Game</button>
+			<button id="btn-continue" class="game-btn">Continue Last Game</button>
+		</div>
+	</div>
+
+	<!-- Game Container: Sudoku board and controls (initially hidden) -->
+	<div id="sudoku-container" class="hidden">
+		<div class="game-header">
+			<button id="btn-back" class="control-btn">← Back to Menu</button>
+			<h2>Sudoku Game</h2>
+			<button id="btn-solve" class="control-btn">Show Solution</button>
+		</div>
+		<div id="sudoku-board" class="board-grid">
+			<!-- 9x9 grid cells will be dynamically created here -->
+		</div>
+		<div class="game-status">
+			<span id="status-text">Fill in the numbers 1-9</span>
+		</div>
+	</div>
+
+	<!-- TypeScript Bundle -->
+	<script type="module" src="/dist/app.js"></script>
+</body>
+
+</html>
