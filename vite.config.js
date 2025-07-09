@@ -21,10 +21,18 @@ export default defineConfig({
 		open: true,
 		fs: {
 			allow: ['..']
+		},
+		// Enable HMR for all file types
+		hmr: {
+			overlay: true
 		}
 	},
 	optimizeDeps: {
 		exclude: ['../pkg/sudoku_wasm.js']
 	},
-	assetsInclude: ['**/*.wasm']
+	assetsInclude: ['**/*.wasm'],
+	// Add CSS processing for HMR
+	css: {
+		devSourcemap: true
+	}
 })

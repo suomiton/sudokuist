@@ -8,6 +8,8 @@
  * - Game state management and URL routing
  */
 
+/// <reference types="vite/client" />
+
 // Type definitions for our application
 interface GameRecord {
 	id: string;
@@ -807,12 +809,18 @@ async function initializeApp(): Promise<void> {
  */
 document.addEventListener("DOMContentLoaded", async () => {
 	try {
-		// Dynamically import WASM module from public directory
-		const wasmModulePath = "/sudoku_wasm.js";
-		const wasmModule = await import(/* @vite-ignore */ wasmModulePath);
-
-		// Initialize WASM with explicit path to the .wasm file
-		await wasmModule.default("/sudoku_wasm_bg.wasm");
+		// Import WASM module - use different paths for dev vs production
+		let wasmModule;
+		if (import.meta.env.DEV) {
+			// During development, import from the pkg directory
+			wasmModule = await import("../pkg/sudoku_wasm.js");
+			await wasmModule.default();
+		} else {
+			// In production, load from public directory
+			const wasmModulePath = "/sudoku_wasm.js";
+			wasmModule = await import(/* @vite-ignore */ wasmModulePath);
+			await wasmModule.default("/sudoku_wasm_bg.wasm");
+		}
 
 		// Make WASM functions globally available
 		(window as any).wasm = wasmModule;

@@ -9,7 +9,8 @@
 		"build-wasm-release": "wasm-pack build --target web --out-dir pkg && cp pkg/sudoku_wasm.js pkg/sudoku_wasm_bg.wasm public/",
 		"build-ts": "cp -r pkg src/ && tsc && vite build && mkdir -p dist/styles && cp styles/* dist/styles/ && cp public/* dist/",
 		"build": "npm run build-wasm && npm run build-ts",
-		"dev": "./dev-setup.sh && npx vite --port 3000",
+		"dev": "npm run build-wasm && cp -r pkg src/ && vite --port 3000",
+		"dev-python": "./dev-setup.sh && npx vite --port 3000",
 		"serve": "python3 server.py",
 		"clean": "rm -rf dist pkg src/pkg public/*.js public/*.wasm",
 		"type-check": "tsc --noEmit"
