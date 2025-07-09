@@ -102,6 +102,26 @@ export function createGame(difficulty) {
     return ret;
 }
 
+function _assertBigInt(n) {
+    if (typeof(n) !== 'bigint') throw new Error(`expected a bigint argument, found ${typeof(n)}`);
+}
+/**
+ * Create a new Sudoku game with specified difficulty and seed for reproducible puzzles
+ * Parameters:
+ * - difficulty: 1 (easy), 2 (medium), 3 (hard)
+ * - seed: u64 seed for deterministic puzzle generation
+ * Returns: Vec<Option<u8>> with 81 cells, Some(n) for given numbers, None for empty
+ * @param {number} difficulty
+ * @param {bigint} seed
+ * @returns {any}
+ */
+export function createGameWithSeed(difficulty, seed) {
+    _assertNum(difficulty);
+    _assertBigInt(seed);
+    const ret = wasm.createGameWithSeed(difficulty, seed);
+    return ret;
+}
+
 /**
  * Validate the current board state
  * Parameters:

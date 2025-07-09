@@ -83,6 +83,11 @@ body {
 	font-weight: 600;
 }
 
+.header-controls {
+	display: flex;
+	gap: 0.5rem;
+}
+
 .control-btn {
 	padding: 0.5rem 1rem;
 	font-size: 0.9rem;
@@ -182,20 +187,70 @@ body {
 	border-radius: 8px;
 }
 
-#status-text {
-	font-size: 1rem;
+/* Share Container */
+.share-container {
+	margin-top: 1.5rem;
+	padding: 1rem;
+	background: #f8f9fa;
+	border-radius: 8px;
+	border: 2px solid #e0e0e0;
+}
+
+.share-header {
+	margin-bottom: 0.5rem;
+}
+
+.share-label {
+	font-size: 0.9rem;
 	color: #666;
 	font-weight: 500;
 }
 
-.status-complete {
-	color: #4caf50 !important;
-	font-weight: 600;
+.share-link-container {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
 }
 
-.status-invalid {
-	color: #f44336 !important;
-	font-weight: 600;
+.share-link {
+	flex: 1;
+	padding: 0.5rem;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background: white;
+	font-size: 0.9rem;
+	color: #333;
+	min-width: 0; /* Allow input to shrink */
+}
+
+.share-link:focus {
+	outline: 2px solid #667eea;
+	outline-offset: -2px;
+}
+
+.copy-btn {
+	padding: 0.5rem 1rem;
+	font-size: 0.9rem;
+	background: #667eea;
+	color: white;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.copy-btn:hover {
+	background: #5a67d8;
+}
+
+.copy-btn:active {
+	transform: translateY(1px);
+}
+
+.copy-btn.copied {
+	background: #4caf50;
 }
 
 /* Animations */
@@ -238,5 +293,14 @@ body {
 
 	#start-screen h1 {
 		font-size: 2rem;
+	}
+
+	.share-link-container {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.copy-btn {
+		width: 100%;
 	}
 }

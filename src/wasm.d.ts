@@ -10,6 +10,7 @@ declare module "/assets/sudoku_wasm.js" {
 	): Promise<void>;
 	export function createBoard(): Uint8Array;
 	export function createGame(difficulty: number): any;
+	export function createGameWithSeed(difficulty: number, seed: bigint): any;
 	export function validateBoard(board: any): ValidationResult;
 	export function solveBoard(board: any): Uint8Array;
 }

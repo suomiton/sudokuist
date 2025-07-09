@@ -84,9 +84,20 @@ fn is_valid_placement(board: &[Option<u8>], row: usize, col: usize, num: u8) -> 
 fn generate_solved_board() -> Vec<u8> {
     let mut board = vec![None; BOARD_SIZE];
     let mut rng = SmallRng::from_entropy();
-
+    
     fill_board(&mut board, &mut rng);
+    
+    // Convert to Vec<u8> (should all be Some values)
+    board.into_iter().map(|cell| cell.unwrap_or(1)).collect()
+}
 
+/// Generate a completely solved Sudoku board using a specific seed for reproducible results
+fn generate_solved_board_with_seed(seed: u64) -> Vec<u8> {
+    let mut board = vec![None; BOARD_SIZE];
+    let mut rng = SmallRng::seed_from_u64(seed);
+    
+    fill_board(&mut board, &mut rng);
+    
     // Convert to Vec<u8> (should all be Some values)
     board.into_iter().map(|cell| cell.unwrap_or(1)).collect()
 }
@@ -126,6 +137,45 @@ fn fill_board(board: &mut [Option<u8>], rng: &mut SmallRng) -> bool {
 fn create_puzzle(solved_board: &[u8], difficulty: u8) -> Vec<Option<u8>> {
     let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
     let mut rng = SmallRng::from_entropy();
+
+    // Determine number of cells to remove based on difficulty
+    let cells_to_remove = match difficulty {
+        1 => 40, // Easy
+        2 => 50, // Medium
+        3 => 60, // Hard
+        _ => 45, // Default
+    };
+
+    let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
+    indices.shuffle(&mut rng);
+
+    let mut removed = 0;
+    for &index in &indices {
+        if removed >= cells_to_remove {
+            break;
+        }
+
+        // Try removing this cell
+        let original = board[index];
+        board[index] = None;
+
+        // Check if puzzle still has unique solution
+        if has_unique_solution(&board) {
+            removed += 1;
+        } else {
+            // Restore cell if removing it makes puzzle unsolvable or non-unique
+            board[index] = original;
+        }
+    }
+
+    board
+}
+
+/// Remove cells from solved board to create puzzle with deterministic seed
+/// This ensures the same seed and difficulty always produce the same puzzle
+fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Vec<Option<u8>> {
+    let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
+    let mut rng = SmallRng::seed_from_u64(seed.wrapping_add(difficulty as u64));
 
     // Determine number of cells to remove based on difficulty
     let cells_to_remove = match difficulty {
@@ -245,6 +295,35 @@ pub fn createGame(difficulty: u8) -> JsValue {
 
     let solved_board = generate_solved_board();
     let puzzle = create_puzzle(&solved_board, difficulty);
+
+    // Convert to JavaScript array of numbers/undefined
+    let js_array = Array::new();
+    for cell in puzzle {
+        match cell {
+            Some(num) => {
+                js_array.push(&JsValue::from(num));
+            }
+            None => {
+                js_array.push(&JsValue::undefined());
+            }
+        }
+    }
+
+    js_array.into()
+}
+
+/// Create a new Sudoku game with specified difficulty and seed for reproducible puzzles
+/// Parameters:
+/// - difficulty: 1 (easy), 2 (medium), 3 (hard)  
+/// - seed: u64 seed for deterministic puzzle generation
+/// Returns: Vec<Option<u8>> with 81 cells, Some(n) for given numbers, None for empty
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+pub fn createGameWithSeed(difficulty: u8, seed: u64) -> JsValue {
+    console_log!("Creating seeded game with difficulty: {}, seed: {}", difficulty, seed);
+
+    let solved_board = generate_solved_board_with_seed(seed);
+    let puzzle = create_puzzle_with_seed(&solved_board, difficulty, seed);
 
     // Convert to JavaScript array of numbers/undefined
     let js_array = Array::new();

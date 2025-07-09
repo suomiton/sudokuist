@@ -30,6 +30,7 @@ interface ValidationResult {
 declare const wasm: {
 	createBoard(): Uint8Array;
 	createGame(difficulty: number): (number | undefined)[];
+	createGameWithSeed(difficulty: number, seed: bigint): (number | undefined)[];
 	validateBoard(board: (number | undefined)[]): ValidationResult;
 	solveBoard(board: (number | undefined)[]): Uint8Array;
 };
@@ -48,10 +49,10 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 	if (props) {
 		// Handle dataset separately since it's read-only
 		const { dataset, ...otherProps } = props as any;
-		
+
 		// Assign other properties
 		Object.assign(element, otherProps);
-		
+
 		// Handle dataset manually
 		if (dataset) {
 			for (const [key, value] of Object.entries(dataset)) {
@@ -80,6 +81,19 @@ function generateUUID(): string {
 		const v = c === "x" ? r : (r & 0x3) | 0x8;
 		return v.toString(16);
 	});
+}
+
+/**
+ * Parse URL parameters for shareable puzzle functionality
+ * Returns seed and difficulty if both are valid, null otherwise
+ */
+function getShareParams(): { seed: number; difficulty: number } | null {
+	const p = new URLSearchParams(location.search);
+	const s = Number(p.get('seed'));
+	const d = Number(p.get('difficulty'));
+	
+	// Validate that seed is an integer and difficulty is between 1-9
+	return (Number.isInteger(s) && d >= 1 && d <= 9) ? { seed: s, difficulty: d } : null;
 }
 
 /**
@@ -200,6 +214,7 @@ class GameManager {
 	private currentGameId: string | null = null;
 	private boardState: (number | null)[] = new Array(81).fill(null);
 	private givenCells: Set<number> = new Set();
+	private currentSeed: number | null = null; // Store the seed used for this puzzle
 	private db: DatabaseManager;
 
 	constructor(db: DatabaseManager) {
@@ -219,8 +234,11 @@ class GameManager {
 
 		await this.db.saveGame(gameRecord);
 
-		// Generate board using WASM
-		const gameBoard = wasm.createGame(difficulty);
+		// Generate a random seed for this puzzle
+		this.currentSeed = Math.floor(Math.random() * 1000000) + Date.now();
+
+		// Generate board using WASM with seed
+		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(this.currentSeed));
 		this.boardState = gameBoard.map((val) => val ?? null);
 
 		// Track which cells are given (pre-filled)
@@ -251,6 +269,7 @@ class GameManager {
 
 		this.currentGameId = lastGame.id;
 		await this.loadGameState();
+		
 		this.updateURL();
 		this.showGameBoard();
 	}
@@ -320,7 +339,7 @@ class GameManager {
 		const result = wasm.validateBoard(
 			this.boardState.map((val) => val ?? undefined)
 		);
-		
+
 		// The result is already a JavaScript object, no need to parse JSON
 		const validation: ValidationResult = result as ValidationResult;
 
@@ -389,6 +408,9 @@ class GameManager {
 		// Hide start screen, show game
 		startScreen.classList.add("hidden");
 		sudokuContainer.classList.remove("hidden");
+
+		// Update share link for the current game
+		this.updateShareLink();
 
 		// Clear existing board
 		boardGrid.innerHTML = "";
@@ -481,7 +503,10 @@ class GameManager {
 		if (this.currentGameId) {
 			const url = new URL(window.location.href);
 			url.searchParams.set("gameId", this.currentGameId);
-			window.history.pushState({}, "", url.toString());
+			// Remove seed and difficulty parameters when creating a persistent game
+			url.searchParams.delete("seed");
+			url.searchParams.delete("difficulty");
+			window.history.replaceState({}, "", url.toString());
 		}
 	}
 
@@ -497,12 +522,172 @@ class GameManager {
 			startScreen.classList.remove("hidden");
 		}
 
+		// Clear share link
+		const shareLink = document.getElementById('share-link') as HTMLInputElement;
+		if (shareLink) {
+			shareLink.value = '';
+		}
+
 		// Clear URL parameters
 		const url = new URL(window.location.href);
 		url.searchParams.delete("gameId");
+		url.searchParams.delete("seed");
+		url.searchParams.delete("difficulty");
 		window.history.pushState({}, "", url.toString());
 
 		this.currentGameId = null;
+		this.currentSeed = null;
+	}
+
+	/**
+	 * Start a shareable puzzle with given seed and difficulty
+	 * This creates an ephemeral puzzle that is not saved to IndexedDB
+	 */
+	async startShareablePuzzle(seed: number, difficulty: number): Promise<void> {
+		// Store the seed for this shareable puzzle
+		this.currentSeed = seed;
+		
+		// Generate puzzle using seed - this will always produce the same puzzle
+		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
+		this.boardState = gameBoard.map(val => val ?? null);
+		
+		// Track which cells are given (pre-filled)
+		this.givenCells.clear();
+		this.boardState.forEach((value, index) => {
+			if (value !== null) {
+				this.givenCells.add(index);
+			}
+		});
+
+		// DO NOT save to IndexedDB - shareable puzzles are ephemeral
+		// DO NOT update currentGameId - this is not a persistent game
+
+		// Clear share link for shareable puzzles (they don't have persistent gameId)
+		const shareLink = document.getElementById('share-link') as HTMLInputElement;
+		if (shareLink) {
+			shareLink.value = '';
+		}
+
+		// Update URL to include seed and difficulty parameters
+		const url = new URL(window.location.href);
+		url.searchParams.set('seed', seed.toString());
+		url.searchParams.set('difficulty', difficulty.toString());
+		url.searchParams.delete('gameId'); // Remove gameId if present
+		window.history.replaceState({}, '', url.toString());
+
+		// Show the game board
+		this.showGameBoard();
+	}
+
+	/**
+	 * Generate a shareable URL for the current puzzle
+	 * This creates a URL with seed and difficulty parameters
+	 */
+	generateShareableUrl(): string | null {
+		// Only generate shareable URL for regular games, not already shared ones
+		if (!this.currentGameId) return null;
+		
+		// Generate a random seed based on current time and game ID
+		const seed = Math.floor(Math.random() * 1000000) + Date.now();
+		const difficulty = 1; // Default difficulty, could be made configurable
+		
+		const url = new URL(window.location.origin + window.location.pathname);
+		url.searchParams.set('seed', seed.toString());
+		url.searchParams.set('difficulty', difficulty.toString());
+		
+		return url.toString();
+	}
+
+	/**
+	 * Generate and populate the share link for the current puzzle
+	 */
+	private updateShareLink(): void {
+		const shareLink = document.getElementById('share-link') as HTMLInputElement;
+		
+		if (!shareLink) return;
+		
+		// Only show share link for regular games with currentGameId
+		if (!this.currentGameId) {
+			shareLink.value = '';
+			return;
+		}
+		
+		// Use the stored seed if available, otherwise generate one from puzzle state
+		let seed = this.currentSeed;
+		if (!seed) {
+			// For legacy games without seed, generate a deterministic seed from puzzle
+			seed = this.generateSeedFromPuzzle();
+		}
+		
+		const difficulty = 1; // Default difficulty, could be made configurable
+		
+		const url = new URL(window.location.origin + window.location.pathname);
+		url.searchParams.set('seed', seed.toString());
+		url.searchParams.set('difficulty', difficulty.toString());
+		
+		shareLink.value = url.toString();
+	}
+
+	/**
+	 * Generate a deterministic seed from the current puzzle's given cells
+	 * This is used for legacy games that don't have a stored seed
+	 */
+	private generateSeedFromPuzzle(): number {
+		// Create a string representation of the given cells (clues)
+		let puzzleString = '';
+		for (let i = 0; i < 81; i++) {
+			if (this.givenCells.has(i)) {
+				puzzleString += `${i}:${this.boardState[i]};`;
+			}
+		}
+		
+		// Create a simple hash from the puzzle string
+		let hash = 0;
+		for (let i = 0; i < puzzleString.length; i++) {
+			const char = puzzleString.charCodeAt(i);
+			hash = ((hash << 5) - hash) + char;
+			hash = hash & hash; // Convert to 32-bit integer
+		}
+		
+		// Ensure positive number
+		return Math.abs(hash);
+	}
+
+	/**
+	 * Start a new game from a shared seed and difficulty
+	 * This creates a persistent game that can be saved and continued
+	 */
+	async startNewGameFromSeed(seed: number, difficulty: number): Promise<void> {
+		// Generate new game ID and create game record
+		this.currentGameId = generateUUID();
+		const gameRecord: GameRecord = {
+			id: this.currentGameId,
+			created: Date.now(),
+		};
+
+		await this.db.saveGame(gameRecord);
+
+		// Use the provided seed for this puzzle
+		this.currentSeed = seed;
+
+		// Generate board using WASM with the provided seed
+		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
+		this.boardState = gameBoard.map((val) => val ?? null);
+
+		// Track which cells are given (pre-filled)
+		this.givenCells.clear();
+		this.boardState.forEach((value, index) => {
+			if (value !== null) {
+				this.givenCells.add(index);
+			}
+		});
+
+		// Save initial board state to database
+		await this.saveBoardState();
+
+		// Update URL to use gameId instead of seed/difficulty
+		this.updateURL();
+		this.showGameBoard();
 	}
 }
 
@@ -512,67 +697,100 @@ class GameManager {
 async function initializeApp(): Promise<void> {
 	try {
 		// Initialize database
-		const db = new DatabaseManager();
-		await db.initialize();
+			const db = new DatabaseManager();
+			await db.initialize();
 
-		// Initialize game manager
-		const gameManager = new GameManager(db);
+			// Initialize game manager
+			const gameManager = new GameManager(db);
 
-		// Setup event handlers
-		const btnStart = document.getElementById("btn-start");
-		const btnContinue = document.getElementById("btn-continue");
-		const btnBack = document.getElementById("btn-back");
-		const btnSolve = document.getElementById("btn-solve");
+			// Setup event handlers
+			const btnStart = document.getElementById("btn-start");
+			const btnContinue = document.getElementById("btn-continue");
+			const btnBack = document.getElementById("btn-back");
+			const btnSolve = document.getElementById("btn-solve");
+			const copyLinkBtn = document.getElementById("copy-link-btn");
 
-		if (btnStart) {
-			btnStart.addEventListener("click", () => gameManager.startNewGame(1));
-		}
+			if (btnStart) {
+				btnStart.addEventListener("click", () => gameManager.startNewGame(1));
+			}
 
-		if (btnContinue) {
-			btnContinue.addEventListener("click", () =>
-				gameManager.continueLastGame()
+			if (btnContinue) {
+				btnContinue.addEventListener("click", () =>
+					gameManager.continueLastGame()
+				);
+			}
+
+			if (btnBack) {
+				btnBack.addEventListener("click", () => gameManager.returnToMenu());
+			}
+
+			if (btnSolve) {
+				btnSolve.addEventListener("click", () => {
+					if (
+						confirm(
+							"Are you sure you want to see the solution? This will complete the puzzle."
+						)
+					) {
+						gameManager.showSolution();
+					}
+				});
+			}
+
+			if (copyLinkBtn) {
+				copyLinkBtn.addEventListener("click", async () => {
+					const shareLink = document.getElementById("share-link") as HTMLInputElement;
+					if (shareLink) {
+						try {
+							await navigator.clipboard.writeText(shareLink.value);
+							copyLinkBtn.textContent = "Copied!";
+							copyLinkBtn.classList.add("copied");
+							
+							setTimeout(() => {
+								copyLinkBtn.textContent = "Copy";
+								copyLinkBtn.classList.remove("copied");
+							}, 2000);
+						} catch (error) {
+							console.error("Failed to copy link:", error);
+							// Fallback: select the text
+							shareLink.select();
+							shareLink.setSelectionRange(0, 99999);
+							alert("Link selected. Press Ctrl+C to copy.");
+						}
+					}
+				});
+			}
+
+			// Check for shareable puzzle parameters first (seed + difficulty)
+			const shareParams = getShareParams();
+			if (shareParams) {
+				// Create a new persistent game from the shared seed
+				await gameManager.startNewGameFromSeed(shareParams.seed, shareParams.difficulty);
+				return; // Skip gameId flow
+			}
+
+			// Check URL for existing game ID (original flow)
+			const urlParams = new URLSearchParams(window.location.search);
+			const gameId = urlParams.get("gameId");
+
+			if (gameId) {
+				// Try to load existing game
+				const lastGame = await db.getLastGame();
+				if (lastGame && lastGame.id === gameId) {
+					await gameManager.continueLastGame();
+				} else {
+					// Game ID in URL doesn't match any saved game, show start screen
+					gameManager.returnToMenu();
+				}
+			}
+
+			console.log("Sudoku application initialized successfully");
+		} catch (error) {
+			console.error("Failed to initialize application:", error);
+			alert(
+				"Failed to initialize the game. Please refresh the page and try again."
 			);
 		}
-
-		if (btnBack) {
-			btnBack.addEventListener("click", () => gameManager.returnToMenu());
-		}
-
-		if (btnSolve) {
-			btnSolve.addEventListener("click", () => {
-				if (
-					confirm(
-						"Are you sure you want to see the solution? This will complete the puzzle."
-					)
-				) {
-					gameManager.showSolution();
-				}
-			});
-		}
-
-		// Check URL for existing game ID
-		const urlParams = new URLSearchParams(window.location.search);
-		const gameId = urlParams.get("gameId");
-
-		if (gameId) {
-			// Try to load existing game
-			const lastGame = await db.getLastGame();
-			if (lastGame && lastGame.id === gameId) {
-				await gameManager.continueLastGame();
-			} else {
-				// Game ID in URL doesn't match any saved game, show start screen
-				gameManager.returnToMenu();
-			}
-		}
-
-		console.log("Sudoku application initialized successfully");
-	} catch (error) {
-		console.error("Failed to initialize application:", error);
-		alert(
-			"Failed to initialize the game. Please refresh the page and try again."
-		);
 	}
-}
 
 /**
  * Load WASM module and initialize application when DOM is ready

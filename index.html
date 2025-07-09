@@ -25,10 +25,21 @@
 		<div class="game-header">
 			<button id="btn-back" class="control-btn">← Back to Menu</button>
 			<h2>Sudoku Game</h2>
-			<button id="btn-solve" class="control-btn">Show Solution</button>
+			<div class="header-controls">
+				<button id="btn-solve" class="control-btn">Show Solution</button>
+			</div>
 		</div>
 		<div id="sudoku-board" class="board-grid">
 			<!-- 9x9 grid cells will be dynamically created here -->
+		</div>
+		<div id="share-container" class="share-container">
+			<div class="share-header">
+				<span class="share-label">Share this puzzle:</span>
+			</div>
+			<div class="share-link-container">
+				<input type="text" id="share-link" class="share-link" readonly>
+				<button id="copy-link-btn" class="copy-btn">Copy</button>
+			</div>
 		</div>
 		<div class="game-status">
 			<span id="status-text">Fill in the numbers 1-9</span>
