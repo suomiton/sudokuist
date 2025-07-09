@@ -89,11 +89,13 @@ function generateUUID(): string {
  */
 function getShareParams(): { seed: number; difficulty: number } | null {
 	const p = new URLSearchParams(location.search);
-	const s = Number(p.get('seed'));
-	const d = Number(p.get('difficulty'));
-	
+	const s = Number(p.get("seed"));
+	const d = Number(p.get("difficulty"));
+
 	// Validate that seed is an integer and difficulty is between 1-9
-	return (Number.isInteger(s) && d >= 1 && d <= 9) ? { seed: s, difficulty: d } : null;
+	return Number.isInteger(s) && d >= 1 && d <= 9
+		? { seed: s, difficulty: d }
+		: null;
 }
 
 /**
@@ -238,7 +240,10 @@ class GameManager {
 		this.currentSeed = Math.floor(Math.random() * 1000000) + Date.now();
 
 		// Generate board using WASM with seed
-		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(this.currentSeed));
+		const gameBoard = wasm.createGameWithSeed(
+			difficulty,
+			BigInt(this.currentSeed)
+		);
 		this.boardState = gameBoard.map((val) => val ?? null);
 
 		// Track which cells are given (pre-filled)
@@ -269,7 +274,7 @@ class GameManager {
 
 		this.currentGameId = lastGame.id;
 		await this.loadGameState();
-		
+
 		this.updateURL();
 		this.showGameBoard();
 	}
@@ -523,9 +528,9 @@ class GameManager {
 		}
 
 		// Clear share link
-		const shareLink = document.getElementById('share-link') as HTMLInputElement;
+		const shareLink = document.getElementById("share-link") as HTMLInputElement;
 		if (shareLink) {
-			shareLink.value = '';
+			shareLink.value = "";
 		}
 
 		// Clear URL parameters
@@ -546,11 +551,11 @@ class GameManager {
 	async startShareablePuzzle(seed: number, difficulty: number): Promise<void> {
 		// Store the seed for this shareable puzzle
 		this.currentSeed = seed;
-		
+
 		// Generate puzzle using seed - this will always produce the same puzzle
 		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
-		this.boardState = gameBoard.map(val => val ?? null);
-		
+		this.boardState = gameBoard.map((val) => val ?? null);
+
 		// Track which cells are given (pre-filled)
 		this.givenCells.clear();
 		this.boardState.forEach((value, index) => {
@@ -563,17 +568,17 @@ class GameManager {
 		// DO NOT update currentGameId - this is not a persistent game
 
 		// Clear share link for shareable puzzles (they don't have persistent gameId)
-		const shareLink = document.getElementById('share-link') as HTMLInputElement;
+		const shareLink = document.getElementById("share-link") as HTMLInputElement;
 		if (shareLink) {
-			shareLink.value = '';
+			shareLink.value = "";
 		}
 
 		// Update URL to include seed and difficulty parameters
 		const url = new URL(window.location.href);
-		url.searchParams.set('seed', seed.toString());
-		url.searchParams.set('difficulty', difficulty.toString());
-		url.searchParams.delete('gameId'); // Remove gameId if present
-		window.history.replaceState({}, '', url.toString());
+		url.searchParams.set("seed", seed.toString());
+		url.searchParams.set("difficulty", difficulty.toString());
+		url.searchParams.delete("gameId"); // Remove gameId if present
+		window.history.replaceState({}, "", url.toString());
 
 		// Show the game board
 		this.showGameBoard();
@@ -586,15 +591,15 @@ class GameManager {
 	generateShareableUrl(): string | null {
 		// Only generate shareable URL for regular games, not already shared ones
 		if (!this.currentGameId) return null;
-		
+
 		// Generate a random seed based on current time and game ID
 		const seed = Math.floor(Math.random() * 1000000) + Date.now();
 		const difficulty = 1; // Default difficulty, could be made configurable
-		
+
 		const url = new URL(window.location.origin + window.location.pathname);
-		url.searchParams.set('seed', seed.toString());
-		url.searchParams.set('difficulty', difficulty.toString());
-		
+		url.searchParams.set("seed", seed.toString());
+		url.searchParams.set("difficulty", difficulty.toString());
+
 		return url.toString();
 	}
 
@@ -602,29 +607,29 @@ class GameManager {
 	 * Generate and populate the share link for the current puzzle
 	 */
 	private updateShareLink(): void {
-		const shareLink = document.getElementById('share-link') as HTMLInputElement;
-		
+		const shareLink = document.getElementById("share-link") as HTMLInputElement;
+
 		if (!shareLink) return;
-		
+
 		// Only show share link for regular games with currentGameId
 		if (!this.currentGameId) {
-			shareLink.value = '';
+			shareLink.value = "";
 			return;
 		}
-		
+
 		// Use the stored seed if available, otherwise generate one from puzzle state
 		let seed = this.currentSeed;
 		if (!seed) {
 			// For legacy games without seed, generate a deterministic seed from puzzle
 			seed = this.generateSeedFromPuzzle();
 		}
-		
+
 		const difficulty = 1; // Default difficulty, could be made configurable
-		
+
 		const url = new URL(window.location.origin + window.location.pathname);
-		url.searchParams.set('seed', seed.toString());
-		url.searchParams.set('difficulty', difficulty.toString());
-		
+		url.searchParams.set("seed", seed.toString());
+		url.searchParams.set("difficulty", difficulty.toString());
+
 		shareLink.value = url.toString();
 	}
 
@@ -634,21 +639,21 @@ class GameManager {
 	 */
 	private generateSeedFromPuzzle(): number {
 		// Create a string representation of the given cells (clues)
-		let puzzleString = '';
+		let puzzleString = "";
 		for (let i = 0; i < 81; i++) {
 			if (this.givenCells.has(i)) {
 				puzzleString += `${i}:${this.boardState[i]};`;
 			}
 		}
-		
+
 		// Create a simple hash from the puzzle string
 		let hash = 0;
 		for (let i = 0; i < puzzleString.length; i++) {
 			const char = puzzleString.charCodeAt(i);
-			hash = ((hash << 5) - hash) + char;
+			hash = (hash << 5) - hash + char;
 			hash = hash & hash; // Convert to 32-bit integer
 		}
-		
+
 		// Ensure positive number
 		return Math.abs(hash);
 	}
@@ -697,100 +702,105 @@ class GameManager {
 async function initializeApp(): Promise<void> {
 	try {
 		// Initialize database
-			const db = new DatabaseManager();
-			await db.initialize();
+		const db = new DatabaseManager();
+		await db.initialize();
 
-			// Initialize game manager
-			const gameManager = new GameManager(db);
+		// Initialize game manager
+		const gameManager = new GameManager(db);
 
-			// Setup event handlers
-			const btnStart = document.getElementById("btn-start");
-			const btnContinue = document.getElementById("btn-continue");
-			const btnBack = document.getElementById("btn-back");
-			const btnSolve = document.getElementById("btn-solve");
-			const copyLinkBtn = document.getElementById("copy-link-btn");
+		// Setup event handlers
+		const btnStart = document.getElementById("btn-start");
+		const btnContinue = document.getElementById("btn-continue");
+		const btnBack = document.getElementById("btn-back");
+		const btnSolve = document.getElementById("btn-solve");
+		const copyLinkBtn = document.getElementById("copy-link-btn");
 
-			if (btnStart) {
-				btnStart.addEventListener("click", () => gameManager.startNewGame(1));
-			}
+		if (btnStart) {
+			btnStart.addEventListener("click", () => gameManager.startNewGame(1));
+		}
 
-			if (btnContinue) {
-				btnContinue.addEventListener("click", () =>
-					gameManager.continueLastGame()
-				);
-			}
-
-			if (btnBack) {
-				btnBack.addEventListener("click", () => gameManager.returnToMenu());
-			}
-
-			if (btnSolve) {
-				btnSolve.addEventListener("click", () => {
-					if (
-						confirm(
-							"Are you sure you want to see the solution? This will complete the puzzle."
-						)
-					) {
-						gameManager.showSolution();
-					}
-				});
-			}
-
-			if (copyLinkBtn) {
-				copyLinkBtn.addEventListener("click", async () => {
-					const shareLink = document.getElementById("share-link") as HTMLInputElement;
-					if (shareLink) {
-						try {
-							await navigator.clipboard.writeText(shareLink.value);
-							copyLinkBtn.textContent = "Copied!";
-							copyLinkBtn.classList.add("copied");
-							
-							setTimeout(() => {
-								copyLinkBtn.textContent = "Copy";
-								copyLinkBtn.classList.remove("copied");
-							}, 2000);
-						} catch (error) {
-							console.error("Failed to copy link:", error);
-							// Fallback: select the text
-							shareLink.select();
-							shareLink.setSelectionRange(0, 99999);
-							alert("Link selected. Press Ctrl+C to copy.");
-						}
-					}
-				});
-			}
-
-			// Check for shareable puzzle parameters first (seed + difficulty)
-			const shareParams = getShareParams();
-			if (shareParams) {
-				// Create a new persistent game from the shared seed
-				await gameManager.startNewGameFromSeed(shareParams.seed, shareParams.difficulty);
-				return; // Skip gameId flow
-			}
-
-			// Check URL for existing game ID (original flow)
-			const urlParams = new URLSearchParams(window.location.search);
-			const gameId = urlParams.get("gameId");
-
-			if (gameId) {
-				// Try to load existing game
-				const lastGame = await db.getLastGame();
-				if (lastGame && lastGame.id === gameId) {
-					await gameManager.continueLastGame();
-				} else {
-					// Game ID in URL doesn't match any saved game, show start screen
-					gameManager.returnToMenu();
-				}
-			}
-
-			console.log("Sudoku application initialized successfully");
-		} catch (error) {
-			console.error("Failed to initialize application:", error);
-			alert(
-				"Failed to initialize the game. Please refresh the page and try again."
+		if (btnContinue) {
+			btnContinue.addEventListener("click", () =>
+				gameManager.continueLastGame()
 			);
 		}
+
+		if (btnBack) {
+			btnBack.addEventListener("click", () => gameManager.returnToMenu());
+		}
+
+		if (btnSolve) {
+			btnSolve.addEventListener("click", () => {
+				if (
+					confirm(
+						"Are you sure you want to see the solution? This will complete the puzzle."
+					)
+				) {
+					gameManager.showSolution();
+				}
+			});
+		}
+
+		if (copyLinkBtn) {
+			copyLinkBtn.addEventListener("click", async () => {
+				const shareLink = document.getElementById(
+					"share-link"
+				) as HTMLInputElement;
+				if (shareLink) {
+					try {
+						await navigator.clipboard.writeText(shareLink.value);
+						copyLinkBtn.textContent = "Copied!";
+						copyLinkBtn.classList.add("copied");
+
+						setTimeout(() => {
+							copyLinkBtn.textContent = "Copy";
+							copyLinkBtn.classList.remove("copied");
+						}, 2000);
+					} catch (error) {
+						console.error("Failed to copy link:", error);
+						// Fallback: select the text
+						shareLink.select();
+						shareLink.setSelectionRange(0, 99999);
+						alert("Link selected. Press Ctrl+C to copy.");
+					}
+				}
+			});
+		}
+
+		// Check for shareable puzzle parameters first (seed + difficulty)
+		const shareParams = getShareParams();
+		if (shareParams) {
+			// Create a new persistent game from the shared seed
+			await gameManager.startNewGameFromSeed(
+				shareParams.seed,
+				shareParams.difficulty
+			);
+			return; // Skip gameId flow
+		}
+
+		// Check URL for existing game ID (original flow)
+		const urlParams = new URLSearchParams(window.location.search);
+		const gameId = urlParams.get("gameId");
+
+		if (gameId) {
+			// Try to load existing game
+			const lastGame = await db.getLastGame();
+			if (lastGame && lastGame.id === gameId) {
+				await gameManager.continueLastGame();
+			} else {
+				// Game ID in URL doesn't match any saved game, show start screen
+				gameManager.returnToMenu();
+			}
+		}
+
+		console.log("Sudoku application initialized successfully");
+	} catch (error) {
+		console.error("Failed to initialize application:", error);
+		alert(
+			"Failed to initialize the game. Please refresh the page and try again."
+		);
 	}
+}
 
 /**
  * Load WASM module and initialize application when DOM is ready

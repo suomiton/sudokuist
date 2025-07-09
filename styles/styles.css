@@ -220,7 +220,8 @@ body {
 	background: white;
 	font-size: 0.9rem;
 	color: #333;
-	min-width: 0; /* Allow input to shrink */
+	min-width: 0;
+	/* Allow input to shrink */
 }
 
 .share-link:focus {

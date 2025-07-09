@@ -84,9 +84,9 @@ fn is_valid_placement(board: &[Option<u8>], row: usize, col: usize, num: u8) -> 
 fn generate_solved_board() -> Vec<u8> {
     let mut board = vec![None; BOARD_SIZE];
     let mut rng = SmallRng::from_entropy();
-    
+
     fill_board(&mut board, &mut rng);
-    
+
     // Convert to Vec<u8> (should all be Some values)
     board.into_iter().map(|cell| cell.unwrap_or(1)).collect()
 }
@@ -95,9 +95,9 @@ fn generate_solved_board() -> Vec<u8> {
 fn generate_solved_board_with_seed(seed: u64) -> Vec<u8> {
     let mut board = vec![None; BOARD_SIZE];
     let mut rng = SmallRng::seed_from_u64(seed);
-    
+
     fill_board(&mut board, &mut rng);
-    
+
     // Convert to Vec<u8> (should all be Some values)
     board.into_iter().map(|cell| cell.unwrap_or(1)).collect()
 }
@@ -320,7 +320,11 @@ pub fn createGame(difficulty: u8) -> JsValue {
 #[wasm_bindgen]
 #[allow(non_snake_case)]
 pub fn createGameWithSeed(difficulty: u8, seed: u64) -> JsValue {
-    console_log!("Creating seeded game with difficulty: {}, seed: {}", difficulty, seed);
+    console_log!(
+        "Creating seeded game with difficulty: {}, seed: {}",
+        difficulty,
+        seed
+    );
 
     let solved_board = generate_solved_board_with_seed(seed);
     let puzzle = create_puzzle_with_seed(&solved_board, difficulty, seed);
