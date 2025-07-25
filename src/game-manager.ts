@@ -5,6 +5,7 @@
 import type { GameRecord, CellRecord, ValidationResult } from "./types.js";
 import { DatabaseManager } from "./database.js";
 import { generateUUID, createElement } from "./utils.js";
+import { modal } from "./modal.js";
 
 export class GameManager {
 	private currentGameId: string | null = null;
@@ -63,7 +64,7 @@ export class GameManager {
 
 		// Update URL and UI
 		this.updateURL();
-		this.showGameBoard();
+		await this.showGameBoard();
 		this.startTimer();
 	}
 
@@ -86,7 +87,7 @@ export class GameManager {
 		await this.loadGameState();
 
 		this.updateURL();
-		this.showGameBoard();
+		await this.showGameBoard();
 		this.startTimer();
 	}
 
@@ -145,13 +146,13 @@ export class GameManager {
 			await this.db.saveCell(cellRecord);
 		}
 
-		this.validateAndUpdateUI();
+		await this.validateAndUpdateUI();
 	}
 
 	/**
 	 * Validate board and update UI accordingly
 	 */
-	private validateAndUpdateUI(): void {
+	private async validateAndUpdateUI(): Promise<void> {
 		const result = wasm.validateBoard(
 			this.boardState.map((val) => val ?? undefined)
 		);
@@ -172,26 +173,34 @@ export class GameManager {
 			}
 		});
 
-		// Update status
-		const statusText = document.getElementById("status-text");
-		if (statusText) {
-			if (validation.is_complete) {
-				statusText.textContent = "🎉 Congratulations! Puzzle completed!";
-				statusText.className = "status-complete";
-			} else if (validation.invalid_indices.length > 0) {
-				statusText.textContent = "❌ Invalid numbers detected";
-				statusText.className = "status-invalid";
-			} else {
-				statusText.textContent = "Fill in the numbers 1-9";
-				statusText.className = "";
-			}
+		// Handle completion
+		if (validation.is_complete) {
+			// Stop the timer when puzzle is completed
+			this.stopTimer();
+
+			// Mark game as finished in database
+			await this.markGameAsFinished();
+
+			// Show completion modal with time
+			const timeText = this.formatTime(this.elapsedTime);
+			modal.show({
+				title: "🎉 Congratulations!",
+				message: `Puzzle completed in <strong>${timeText}</strong>!<br><br>Well done! You've successfully solved the Sudoku puzzle.`,
+				type: "success",
+				showCancel: false,
+				confirmText: "Back to Menu",
+				onConfirm: () => {
+					// Return to menu after completion
+					this.returnToMenu();
+				},
+			});
 		}
 	}
 
 	/**
 	 * Show the solution using WASM solver
 	 */
-	showSolution(): void {
+	async showSolution(): Promise<void> {
 		const solution = wasm.solveBoard(
 			this.boardState.map((val) => val ?? undefined)
 		);
@@ -208,13 +217,13 @@ export class GameManager {
 			}
 		});
 		this.saveBoardState();
-		this.validateAndUpdateUI();
+		await this.validateAndUpdateUI();
 	}
 
 	/**
 	 * Create and display the game board UI
 	 */
-	private showGameBoard(): void {
+	private async showGameBoard(): Promise<void> {
 		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
 		const boardGrid = document.getElementById("sudoku-board");
@@ -256,7 +265,7 @@ export class GameManager {
 		}
 
 		// Initial validation
-		this.validateAndUpdateUI();
+		await this.validateAndUpdateUI();
 	}
 
 	/**
@@ -329,7 +338,7 @@ export class GameManager {
 	/**
 	 * Return to start screen
 	 */
-	returnToMenu(): void {
+	async returnToMenu(): Promise<void> {
 		// Stop the timer
 		this.stopTimer();
 
@@ -356,6 +365,9 @@ export class GameManager {
 
 		this.currentGameId = null;
 		this.currentSeed = null;
+
+		// Update continue button state
+		await this.updateContinueButtonState();
 	}
 
 	/**
@@ -399,7 +411,7 @@ export class GameManager {
 		window.history.replaceState({}, "", url.toString());
 
 		// Show the game board and start timer
-		this.showGameBoard();
+		await this.showGameBoard();
 		this.startTimer();
 	}
 
@@ -516,7 +528,7 @@ export class GameManager {
 
 		// Update URL to use gameId instead of seed/difficulty
 		this.updateURL();
-		this.showGameBoard();
+		await this.showGameBoard();
 		this.startTimer();
 	}
 
@@ -570,6 +582,20 @@ export class GameManager {
 	}
 
 	/**
+	 * Format time in seconds to HH:MM:SS string
+	 */
+	private formatTime(totalSeconds: number): string {
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+
+		// Format with leading zeros
+		return `${hours.toString().padStart(2, "0")}:${minutes
+			.toString()
+			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+	}
+
+	/**
 	 * Save timer state to database
 	 */
 	private async saveTimerState(): Promise<void> {
@@ -589,6 +615,48 @@ export class GameManager {
 			await this.db.updateGame(updatedGame);
 		} catch (error) {
 			console.warn("Failed to save timer state:", error);
+		}
+	}
+
+	/**
+	 * Mark the current game as finished in the database
+	 */
+	private async markGameAsFinished(): Promise<void> {
+		if (!this.currentGameId) return;
+
+		const lastGame = await this.db.getLastGame();
+		if (!lastGame || lastGame.id !== this.currentGameId) return;
+
+		const updatedGame: GameRecord = {
+			...lastGame,
+			elapsedTime: this.elapsedTime,
+			isFinished: true,
+		};
+
+		try {
+			await this.db.updateGame(updatedGame);
+		} catch (error) {
+			console.warn("Failed to mark game as finished:", error);
+		}
+	}
+
+	/**
+	 * Update the continue button state based on whether there's an unfinished game
+	 */
+	async updateContinueButtonState(): Promise<void> {
+		const btnContinue = document.getElementById(
+			"btn-continue"
+		) as HTMLButtonElement;
+		if (!btnContinue) return;
+
+		const lastGame = await this.db.getLastGame();
+
+		// Show continue button only if there's an unfinished game
+		if (lastGame && !lastGame.isFinished) {
+			btnContinue.style.display = "";
+			btnContinue.disabled = false;
+		} else {
+			btnContinue.style.display = "none";
 		}
 	}
 }

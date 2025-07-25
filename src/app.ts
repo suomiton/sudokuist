@@ -14,6 +14,7 @@ import { DatabaseManager } from "./database.js";
 import { GameManager } from "./game-manager.js";
 import { getShareParams } from "./utils.js";
 import { initializeWasm } from "./wasm-loader.js";
+import { modal } from "./modal.js";
 
 /**
  * Application initialization and main entry point
@@ -28,7 +29,7 @@ async function initializeApp(): Promise<void> {
 		const gameManager = new GameManager(db);
 
 		// Setup event handlers
-		setupEventHandlers(gameManager);
+		await setupEventHandlers(gameManager);
 
 		// Handle URL routing
 		await handleUrlRouting(gameManager, db);
@@ -45,7 +46,7 @@ async function initializeApp(): Promise<void> {
 /**
  * Setup all event handlers for the application
  */
-function setupEventHandlers(gameManager: GameManager): void {
+async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 	const btnStart = document.getElementById("btn-start");
 	const btnContinue = document.getElementById("btn-continue");
 	const btnBack = document.getElementById("btn-back");
@@ -57,20 +58,27 @@ function setupEventHandlers(gameManager: GameManager): void {
 	}
 
 	if (btnContinue) {
+		// Check if there's an unfinished game to continue
+		await gameManager.updateContinueButtonState();
+
 		btnContinue.addEventListener("click", () => gameManager.continueLastGame());
 	}
 
 	if (btnBack) {
-		btnBack.addEventListener("click", () => gameManager.returnToMenu());
+		btnBack.addEventListener(
+			"click",
+			async () => await gameManager.returnToMenu()
+		);
 	}
 
 	if (btnSolve) {
-		btnSolve.addEventListener("click", () => {
-			if (
-				confirm(
-					"Are you sure you want to see the solution? This will complete the puzzle."
-				)
-			) {
+		btnSolve.addEventListener("click", async () => {
+			const confirmed = await modal.confirm(
+				"Show Solution",
+				"Are you sure you want to see the solution? This will complete the puzzle."
+			);
+
+			if (confirmed) {
 				gameManager.showSolution();
 			}
 		});

@@ -14,6 +14,172 @@ body {
 	display: none !important;
 }
 
+/* Modal Styles */
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(3px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+	padding: 1rem;
+}
+
+.modal-overlay-visible {
+	opacity: 1;
+}
+
+.modal-container {
+	background: white;
+	border-radius: 16px;
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+	max-width: 500px;
+	width: 100%;
+	max-height: 80vh;
+	overflow: hidden;
+	transform: scale(0.9) translateY(20px);
+	transition: transform 0.3s ease;
+}
+
+.modal-container-visible {
+	transform: scale(1) translateY(0);
+}
+
+.modal-content {
+	display: flex;
+	flex-direction: column;
+}
+
+.modal-header {
+	padding: 1.5rem 1.5rem 0;
+	border-bottom: 1px solid #e0e0e0;
+	margin-bottom: 1rem;
+}
+
+.modal-title {
+	font-size: 1.3rem;
+	font-weight: 600;
+	color: #333;
+	margin: 0;
+	padding-bottom: 1rem;
+}
+
+.modal-body {
+	padding: 0 1.5rem;
+	flex: 1;
+	overflow-y: auto;
+}
+
+.modal-message {
+	font-size: 1rem;
+	line-height: 1.5;
+	color: #555;
+	margin: 0;
+}
+
+.modal-footer {
+	padding: 1.5rem;
+	display: flex;
+	gap: 0.75rem;
+	justify-content: flex-end;
+	border-top: 1px solid #e0e0e0;
+	margin-top: 1rem;
+}
+
+.modal-btn {
+	padding: 0.75rem 1.5rem;
+	font-size: 0.95rem;
+	font-weight: 600;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	border: none;
+	min-width: 80px;
+}
+
+.modal-btn:focus {
+	outline: 2px solid #667eea;
+	outline-offset: 2px;
+}
+
+.modal-btn-confirm {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.modal-btn-confirm:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.modal-btn-cancel {
+	background: #f8f9fa;
+	color: #666;
+	border: 2px solid #e0e0e0;
+}
+
+.modal-btn-cancel:hover {
+	background: #e9ecef;
+	border-color: #ccc;
+}
+
+/* Modal Type Variations */
+.modal-success .modal-header {
+	background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+	color: white;
+	border-radius: 16px 16px 0 0;
+	margin-bottom: 0;
+	border-bottom: none;
+}
+
+.modal-success .modal-title {
+	color: white;
+}
+
+.modal-success .modal-body {
+	padding-top: 1.5rem;
+}
+
+.modal-warning .modal-header {
+	background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+	color: white;
+	border-radius: 16px 16px 0 0;
+	margin-bottom: 0;
+	border-bottom: none;
+}
+
+.modal-warning .modal-title {
+	color: white;
+}
+
+.modal-warning .modal-body {
+	padding-top: 1.5rem;
+}
+
+.modal-confirmation .modal-header {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border-radius: 16px 16px 0 0;
+	margin-bottom: 0;
+	border-bottom: none;
+}
+
+.modal-confirmation .modal-title {
+	color: white;
+}
+
+.modal-confirmation .modal-body {
+	padding-top: 1.5rem;
+}
+
 /* Start Screen Layout */
 #start-screen {
 	text-align: center;
@@ -178,15 +344,6 @@ body {
 	border-bottom: 2px solid #333;
 }
 
-/* Game Status */
-.game-status {
-	text-align: center;
-	margin-top: 1.5rem;
-	padding: 1rem;
-	background: #f8f9fa;
-	border-radius: 8px;
-}
-
 /* Timer Container */
 .timer-container {
 	text-align: center;
@@ -327,6 +484,21 @@ body {
 	}
 
 	.copy-btn {
+		width: 100%;
+	}
+
+	/* Modal responsive styles */
+	.modal-container {
+		margin: 1rem;
+		max-width: calc(100vw - 2rem);
+	}
+
+	.modal-footer {
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.modal-btn {
 		width: 100%;
 	}
 }
