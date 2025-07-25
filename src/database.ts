@@ -7,7 +7,7 @@ import type { GameRecord, CellRecord } from "./types.js";
 export class DatabaseManager {
 	private db: IDBDatabase | null = null;
 	private readonly dbName = "sudoku";
-	private readonly version = 1;
+	private readonly version = 2; // Incremented to add timer fields
 
 	/**
 	 * Initialize IndexedDB with required object stores
@@ -53,6 +53,22 @@ export class DatabaseManager {
 
 		return new Promise((resolve, reject) => {
 			const request = store.add(game);
+			request.onsuccess = () => resolve();
+			request.onerror = () => reject(request.error);
+		});
+	}
+
+	/**
+	 * Update an existing game record (for timer updates)
+	 */
+	async updateGame(game: GameRecord): Promise<void> {
+		if (!this.db) throw new Error("Database not initialized");
+
+		const transaction = this.db.transaction(["games"], "readwrite");
+		const store = transaction.objectStore("games");
+
+		return new Promise((resolve, reject) => {
+			const request = store.put(game);
 			request.onsuccess = () => resolve();
 			request.onerror = () => reject(request.error);
 		});

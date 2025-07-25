@@ -187,6 +187,31 @@ body {
 	border-radius: 8px;
 }
 
+/* Timer Container */
+.timer-container {
+	text-align: center;
+	margin-top: 1rem;
+	padding: 0.75rem 1rem;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	border-radius: 8px;
+	color: white;
+	box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.timer-label {
+	font-size: 0.9rem;
+	font-weight: 500;
+	margin-right: 0.5rem;
+	opacity: 0.9;
+}
+
+.timer-display {
+	font-family: 'Courier New', 'Monaco', monospace;
+	font-size: 1.2rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+}
+
 /* Share Container */
 .share-container {
 	margin-top: 1.5rem;

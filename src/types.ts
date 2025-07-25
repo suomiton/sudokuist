@@ -5,6 +5,8 @@
 export interface GameRecord {
 	id: string;
 	created: number;
+	startTime?: number; // When the timer started (timestamp)
+	elapsedTime?: number; // Total elapsed time in seconds
 }
 
 export interface CellRecord {

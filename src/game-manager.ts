@@ -13,6 +13,11 @@ export class GameManager {
 	private currentSeed: number | null = null; // Store the seed used for this puzzle
 	private db: DatabaseManager;
 
+	// Timer-related properties
+	private timerInterval: number | null = null;
+	private startTime: number | null = null;
+	private elapsedTime: number = 0; // in seconds
+
 	constructor(db: DatabaseManager) {
 		this.db = db;
 	}
@@ -23,9 +28,14 @@ export class GameManager {
 	async startNewGame(difficulty: number = 1): Promise<void> {
 		// Generate new game ID and create game record
 		this.currentGameId = generateUUID();
+		this.startTime = Date.now();
+		this.elapsedTime = 0;
+
 		const gameRecord: GameRecord = {
 			id: this.currentGameId,
 			created: Date.now(),
+			startTime: this.startTime,
+			elapsedTime: 0,
 		};
 
 		await this.db.saveGame(gameRecord);
@@ -54,6 +64,7 @@ export class GameManager {
 		// Update URL and UI
 		this.updateURL();
 		this.showGameBoard();
+		this.startTimer();
 	}
 
 	/**
@@ -67,10 +78,16 @@ export class GameManager {
 		}
 
 		this.currentGameId = lastGame.id;
+
+		// Restore timer state
+		this.startTime = lastGame.startTime || Date.now();
+		this.elapsedTime = lastGame.elapsedTime || 0;
+
 		await this.loadGameState();
 
 		this.updateURL();
 		this.showGameBoard();
+		this.startTimer();
 	}
 
 	/**
@@ -313,6 +330,9 @@ export class GameManager {
 	 * Return to start screen
 	 */
 	returnToMenu(): void {
+		// Stop the timer
+		this.stopTimer();
+
 		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
 
@@ -346,6 +366,10 @@ export class GameManager {
 		// Store the seed for this shareable puzzle
 		this.currentSeed = seed;
 
+		// Initialize timer for shared puzzle (non-persistent)
+		this.startTime = Date.now();
+		this.elapsedTime = 0;
+
 		// Generate puzzle using seed - this will always produce the same puzzle
 		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
 		this.boardState = gameBoard.map((val) => val ?? null);
@@ -374,8 +398,9 @@ export class GameManager {
 		url.searchParams.delete("gameId"); // Remove gameId if present
 		window.history.replaceState({}, "", url.toString());
 
-		// Show the game board
+		// Show the game board and start timer
 		this.showGameBoard();
+		this.startTimer();
 	}
 
 	/**
@@ -459,9 +484,14 @@ export class GameManager {
 	async startNewGameFromSeed(seed: number, difficulty: number): Promise<void> {
 		// Generate new game ID and create game record
 		this.currentGameId = generateUUID();
+		this.startTime = Date.now();
+		this.elapsedTime = 0;
+
 		const gameRecord: GameRecord = {
 			id: this.currentGameId,
 			created: Date.now(),
+			startTime: this.startTime,
+			elapsedTime: 0,
 		};
 
 		await this.db.saveGame(gameRecord);
@@ -487,5 +517,78 @@ export class GameManager {
 		// Update URL to use gameId instead of seed/difficulty
 		this.updateURL();
 		this.showGameBoard();
+		this.startTimer();
+	}
+
+	/**
+	 * Start the timer for the current game
+	 */
+	private startTimer(): void {
+		// Clear any existing timer
+		this.stopTimer();
+
+		// Update display immediately
+		this.updateTimerDisplay();
+
+		// Start interval to update every second
+		this.timerInterval = window.setInterval(() => {
+			this.elapsedTime++;
+			this.updateTimerDisplay();
+			this.saveTimerState();
+		}, 1000);
+	}
+
+	/**
+	 * Stop the timer
+	 */
+	private stopTimer(): void {
+		if (this.timerInterval !== null) {
+			clearInterval(this.timerInterval);
+			this.timerInterval = null;
+		}
+	}
+
+	/**
+	 * Update the timer display in the UI
+	 */
+	private updateTimerDisplay(): void {
+		const timerDisplay = document.getElementById("timer-display");
+		if (!timerDisplay) return;
+
+		// Format elapsed time as HH:MM:SS
+		const totalSeconds = this.elapsedTime;
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+
+		// Format with leading zeros
+		const formatted = `${hours.toString().padStart(2, "0")}:${minutes
+			.toString()
+			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+
+		timerDisplay.textContent = formatted;
+	}
+
+	/**
+	 * Save timer state to database
+	 */
+	private async saveTimerState(): Promise<void> {
+		// Only save timer state for persistent games (not shareable puzzles)
+		if (!this.currentGameId || !this.startTime) return;
+
+		const lastGame = await this.db.getLastGame();
+		if (!lastGame || lastGame.id !== this.currentGameId) return;
+
+		const updatedGame: GameRecord = {
+			...lastGame,
+			startTime: this.startTime,
+			elapsedTime: this.elapsedTime,
+		};
+
+		try {
+			await this.db.updateGame(updatedGame);
+		} catch (error) {
+			console.warn("Failed to save timer state:", error);
+		}
 	}
 }
