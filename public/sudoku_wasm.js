@@ -53,14 +53,137 @@ function _assertNum(n) {
     if (typeof(n) !== 'number') throw new Error(`expected a number argument, found ${typeof(n)}`);
 }
 
-function isLikeNone(x) {
-    return x === undefined || x === null;
-}
-
 function _assertBoolean(n) {
     if (typeof(n) !== 'boolean') {
         throw new Error(`expected a boolean argument, found ${typeof(n)}`);
     }
+}
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
+function debugString(val) {
+    // primitive types
+    const type = typeof val;
+    if (type == 'number' || type == 'boolean' || val == null) {
+        return  `${val}`;
+    }
+    if (type == 'string') {
+        return `"${val}"`;
+    }
+    if (type == 'symbol') {
+        const description = val.description;
+        if (description == null) {
+            return 'Symbol';
+        } else {
+            return `Symbol(${description})`;
+        }
+    }
+    if (type == 'function') {
+        const name = val.name;
+        if (typeof name == 'string' && name.length > 0) {
+            return `Function(${name})`;
+        } else {
+            return 'Function';
+        }
+    }
+    // objects
+    if (Array.isArray(val)) {
+        const length = val.length;
+        let debug = '[';
+        if (length > 0) {
+            debug += debugString(val[0]);
+        }
+        for(let i = 1; i < length; i++) {
+            debug += ', ' + debugString(val[i]);
+        }
+        debug += ']';
+        return debug;
+    }
+    // Test for built-in
+    const builtInMatches = /\[object ([^\]]+)\]/.exec(toString.call(val));
+    let className;
+    if (builtInMatches && builtInMatches.length > 1) {
+        className = builtInMatches[1];
+    } else {
+        // Failed to match the standard '[object ClassName]'
+        return toString.call(val);
+    }
+    if (className == 'Object') {
+        // we're a user defined class or Object
+        // JSON.stringify avoids problems with cycles, and is generally much
+        // easier than looping through ownProperties of `val`.
+        try {
+            return 'Object(' + JSON.stringify(val) + ')';
+        } catch (_) {
+            return 'Object';
+        }
+    }
+    // errors
+    if (val instanceof Error) {
+        return `${val.name}: ${val.message}\n${val.stack}`;
+    }
+    // TODO we could test for more things here, like `Set`s and `Map`s.
+    return className;
+}
+
+let WASM_VECTOR_LEN = 0;
+
+const cachedTextEncoder = (typeof TextEncoder !== 'undefined' ? new TextEncoder('utf-8') : { encode: () => { throw Error('TextEncoder not available') } } );
+
+const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
+    ? function (arg, view) {
+    return cachedTextEncoder.encodeInto(arg, view);
+}
+    : function (arg, view) {
+    const buf = cachedTextEncoder.encode(arg);
+    view.set(buf);
+    return {
+        read: arg.length,
+        written: buf.length
+    };
+});
+
+function passStringToWasm0(arg, malloc, realloc) {
+
+    if (typeof(arg) !== 'string') throw new Error(`expected a string argument, found ${typeof(arg)}`);
+
+    if (realloc === undefined) {
+        const buf = cachedTextEncoder.encode(arg);
+        const ptr = malloc(buf.length, 1) >>> 0;
+        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
+        WASM_VECTOR_LEN = buf.length;
+        return ptr;
+    }
+
+    let len = arg.length;
+    let ptr = malloc(len, 1) >>> 0;
+
+    const mem = getUint8ArrayMemory0();
+
+    let offset = 0;
+
+    for (; offset < len; offset++) {
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
+        mem[ptr + offset] = code;
+    }
+
+    if (offset !== len) {
+        if (offset !== 0) {
+            arg = arg.slice(offset);
+        }
+        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
+        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
+        const ret = encodeString(arg, view);
+        if (ret.read !== arg.length) throw new Error('failed to pass whole string');
+        offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
+    }
+
+    WASM_VECTOR_LEN = offset;
+    return ptr;
 }
 
 let cachedDataViewMemory0 = null;
@@ -91,7 +214,7 @@ export function createBoard() {
 /**
  * Create a new Sudoku game with specified difficulty
  * Parameters:
- * - difficulty: 1 (easy), 2 (medium), 3 (hard)
+ * - difficulty: 1 (very easy), 2 (easy), 3 (medium), 4 (hard), 5 (very hard)
  * Returns: Vec<Option<u8>> with 81 cells, Some(n) for given numbers, None for empty
  * @param {number} difficulty
  * @returns {any}
@@ -108,7 +231,7 @@ function _assertBigInt(n) {
 /**
  * Create a new Sudoku game with specified difficulty and seed for reproducible puzzles
  * Parameters:
- * - difficulty: 1 (easy), 2 (medium), 3 (hard)
+ * - difficulty: 1 (very easy), 2 (easy), 3 (medium), 4 (hard), 5 (very hard)
  * - seed: u64 seed for deterministic puzzle generation
  * Returns: Vec<Option<u8>> with 81 cells, Some(n) for given numbers, None for empty
  * @param {number} difficulty
@@ -119,6 +242,33 @@ export function createGameWithSeed(difficulty, seed) {
     _assertNum(difficulty);
     _assertBigInt(seed);
     const ret = wasm.createGameWithSeed(difficulty, seed);
+    return ret;
+}
+
+/**
+ * Create a new Sudoku game with detailed difficulty analysis
+ * Parameters:
+ * - difficulty: 1 (very easy), 2 (easy), 3 (medium), 4 (hard), 5 (very hard)
+ * Returns: JSON object with puzzle and analysis
+ * @param {number} difficulty
+ * @returns {any}
+ */
+export function createGameWithAnalysis(difficulty) {
+    _assertNum(difficulty);
+    const ret = wasm.createGameWithAnalysis(difficulty);
+    return ret;
+}
+
+/**
+ * Analyze the difficulty of an existing puzzle
+ * Parameters:
+ * - board: Vec<Option<u8>> representing current board state
+ * Returns: JSON object with difficulty analysis
+ * @param {any} board
+ * @returns {any}
+ */
+export function analyzePuzzleDifficulty(board) {
+    const ret = wasm.analyzePuzzleDifficulty(board);
     return ret;
 }
 
@@ -274,6 +424,11 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_set_65595bdd868b3009 = function() { return logError(function (arg0, arg1, arg2) {
         arg0.set(arg1, arg2 >>> 0);
     }, arguments) };
+    imports.wbg.__wbg_set_bb8cecf6a62b9f46 = function() { return handleError(function (arg0, arg1, arg2) {
+        const ret = Reflect.set(arg0, arg1, arg2);
+        _assertBoolean(ret);
+        return ret;
+    }, arguments) };
     imports.wbg.__wbg_static_accessor_GLOBAL_88a902d13a557d07 = function() { return logError(function () {
         const ret = typeof global === 'undefined' ? null : global;
         return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
@@ -301,6 +456,13 @@ function __wbg_get_imports() {
     imports.wbg.__wbindgen_bigint_from_u64 = function(arg0) {
         const ret = BigInt.asUintN(64, arg0);
         return ret;
+    };
+    imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {
+        const ret = debugString(arg1);
+        const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+        getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
     };
     imports.wbg.__wbindgen_error_new = function(arg0, arg1) {
         const ret = new Error(getStringFromWasm0(arg0, arg1));

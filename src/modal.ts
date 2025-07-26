@@ -215,19 +215,34 @@ export class Modal {
 		const difficulties = [
 			{
 				level: 1,
-				name: "Beginner",
+				name: "Very Easy",
 				stars: 1,
-				description: "Perfect for learning",
+				description: "~51 clues, straightforward",
 			},
-			{ level: 2, name: "Easy", stars: 2, description: "Gentle challenge" },
+			{
+				level: 2,
+				name: "Easy",
+				stars: 2,
+				description: "~46 clues, gentle challenge",
+			},
 			{
 				level: 3,
 				name: "Medium",
 				stars: 3,
-				description: "Balanced difficulty",
+				description: "~41 clues, moderate difficulty",
 			},
-			{ level: 4, name: "Hard", stars: 4, description: "Serious challenge" },
-			{ level: 5, name: "Expert", stars: 5, description: "For masters only" },
+			{
+				level: 4,
+				name: "Hard",
+				stars: 4,
+				description: "~36 clues, challenging",
+			},
+			{
+				level: 5,
+				name: "Very Hard",
+				stars: 5,
+				description: "~31 clues, expert level",
+			},
 		];
 
 		difficulties.forEach((diff) => {
