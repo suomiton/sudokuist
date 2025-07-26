@@ -140,10 +140,12 @@ fn create_puzzle(solved_board: &[u8], difficulty: u8) -> Vec<Option<u8>> {
 
     // Determine number of cells to remove based on difficulty
     let cells_to_remove = match difficulty {
-        1 => 40, // Easy
-        2 => 50, // Medium
-        3 => 60, // Hard
-        _ => 45, // Default
+        1 => 35, // Beginner - fewer cells removed, more clues
+        2 => 45, // Easy
+        3 => 55, // Medium
+        4 => 65, // Hard
+        5 => 75, // Expert - more cells removed, fewer clues
+        _ => 55, // Default to medium
     };
 
     let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
@@ -179,10 +181,12 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
 
     // Determine number of cells to remove based on difficulty
     let cells_to_remove = match difficulty {
-        1 => 40, // Easy
-        2 => 50, // Medium
-        3 => 60, // Hard
-        _ => 45, // Default
+        1 => 35, // Beginner - fewer cells removed, more clues
+        2 => 45, // Easy
+        3 => 55, // Medium
+        4 => 65, // Hard
+        5 => 75, // Expert - more cells removed, fewer clues
+        _ => 55, // Default to medium
     };
 
     let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();

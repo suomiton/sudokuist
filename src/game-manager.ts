@@ -12,6 +12,7 @@ export class GameManager {
 	private boardState: (number | null)[] = new Array(81).fill(null);
 	private givenCells: Set<number> = new Set();
 	private currentSeed: number | null = null; // Store the seed used for this puzzle
+	private currentDifficulty: number = 1; // Store the current difficulty level
 	private db: DatabaseManager;
 
 	// Timer-related properties
@@ -27,6 +28,9 @@ export class GameManager {
 	 * Start a new game with given difficulty
 	 */
 	async startNewGame(difficulty: number = 1): Promise<void> {
+		// Store the difficulty for this game
+		this.currentDifficulty = difficulty;
+
 		// Generate new game ID and create game record
 		this.currentGameId = generateUUID();
 		this.startTime = Date.now();
@@ -423,13 +427,16 @@ export class GameManager {
 		// Only generate shareable URL for regular games, not already shared ones
 		if (!this.currentGameId) return null;
 
-		// Generate a random seed based on current time and game ID
-		const seed = Math.floor(Math.random() * 1000000) + Date.now();
-		const difficulty = 1; // Default difficulty, could be made configurable
+		// Use the stored seed and difficulty for this puzzle
+		let seed = this.currentSeed;
+		if (!seed) {
+			// Fallback: generate seed from puzzle state if not stored
+			seed = this.generateSeedFromPuzzle();
+		}
 
 		const url = new URL(window.location.origin + window.location.pathname);
 		url.searchParams.set("seed", seed.toString());
-		url.searchParams.set("difficulty", difficulty.toString());
+		url.searchParams.set("difficulty", this.currentDifficulty.toString());
 
 		return url.toString();
 	}
@@ -455,7 +462,7 @@ export class GameManager {
 			seed = this.generateSeedFromPuzzle();
 		}
 
-		const difficulty = 1; // Default difficulty, could be made configurable
+		const difficulty = this.currentDifficulty || 1;
 
 		const url = new URL(window.location.origin + window.location.pathname);
 		url.searchParams.set("seed", seed.toString());
@@ -494,6 +501,9 @@ export class GameManager {
 	 * This creates a persistent game that can be saved and continued
 	 */
 	async startNewGameFromSeed(seed: number, difficulty: number): Promise<void> {
+		// Store the difficulty for this game
+		this.currentDifficulty = difficulty;
+
 		// Generate new game ID and create game record
 		this.currentGameId = generateUUID();
 		this.startTime = Date.now();

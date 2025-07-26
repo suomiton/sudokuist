@@ -72,6 +72,15 @@ export class Modal {
 	}
 
 	/**
+	 * Show a difficulty selection dialog
+	 */
+	selectDifficulty(): Promise<number | null> {
+		return new Promise((resolve) => {
+			this.createDifficultyModal(resolve);
+		});
+	}
+
+	/**
 	 * Create and display the modal
 	 */
 	private createModal(
@@ -162,6 +171,166 @@ export class Modal {
 	}
 
 	/**
+	 * Create and display the difficulty selection modal
+	 */
+	private createDifficultyModal(resolve: (value: number | null) => void): void {
+		// Create overlay
+		this.overlay = document.createElement("div");
+		this.overlay.className = "modal-overlay";
+
+		// Create modal container
+		this.modal = document.createElement("div");
+		this.modal.className = "modal-container modal-info";
+
+		// Create modal content
+		const content = document.createElement("div");
+		content.className = "modal-content";
+
+		// Modal header
+		const header = document.createElement("div");
+		header.className = "modal-header";
+
+		const title = document.createElement("h3");
+		title.className = "modal-title";
+		title.textContent = "Select Difficulty";
+
+		header.appendChild(title);
+
+		// Modal body
+		const body = document.createElement("div");
+		body.className = "modal-body";
+
+		const description = document.createElement("p");
+		description.className = "modal-message";
+		description.textContent = "Choose your preferred difficulty level:";
+		body.appendChild(description);
+
+		// Difficulty selection container
+		const difficultyContainer = document.createElement("div");
+		difficultyContainer.className = "difficulty-selection";
+
+		let selectedDifficulty = 1; // Default to easiest
+
+		// Create difficulty options
+		const difficulties = [
+			{
+				level: 1,
+				name: "Beginner",
+				stars: 1,
+				description: "Perfect for learning",
+			},
+			{ level: 2, name: "Easy", stars: 2, description: "Gentle challenge" },
+			{
+				level: 3,
+				name: "Medium",
+				stars: 3,
+				description: "Balanced difficulty",
+			},
+			{ level: 4, name: "Hard", stars: 4, description: "Serious challenge" },
+			{ level: 5, name: "Expert", stars: 5, description: "For masters only" },
+		];
+
+		difficulties.forEach((diff) => {
+			const option = document.createElement("div");
+			option.className = "difficulty-option";
+			if (diff.level === 1) option.classList.add("selected");
+
+			// Stars display
+			const starsContainer = document.createElement("div");
+			starsContainer.className = "difficulty-stars";
+
+			for (let i = 1; i <= 5; i++) {
+				const star = document.createElement("span");
+				star.className = i <= diff.stars ? "star filled" : "star empty";
+				star.textContent = "★";
+				starsContainer.appendChild(star);
+			}
+
+			// Difficulty info
+			const info = document.createElement("div");
+			info.className = "difficulty-info";
+
+			const name = document.createElement("div");
+			name.className = "difficulty-name";
+			name.textContent = diff.name;
+
+			const desc = document.createElement("div");
+			desc.className = "difficulty-description";
+			desc.textContent = diff.description;
+
+			info.appendChild(name);
+			info.appendChild(desc);
+
+			option.appendChild(starsContainer);
+			option.appendChild(info);
+
+			// Click handler
+			option.addEventListener("click", () => {
+				// Remove selected from all options
+				difficultyContainer
+					.querySelectorAll(".difficulty-option")
+					.forEach((opt) => {
+						opt.classList.remove("selected");
+					});
+				// Add selected to clicked option
+				option.classList.add("selected");
+				selectedDifficulty = diff.level;
+			});
+
+			difficultyContainer.appendChild(option);
+		});
+
+		body.appendChild(difficultyContainer);
+
+		// Modal footer
+		const footer = document.createElement("div");
+		footer.className = "modal-footer";
+
+		// Start button
+		const startBtn = document.createElement("button");
+		startBtn.className = "modal-btn modal-btn-confirm";
+		startBtn.textContent = "Start Game";
+		startBtn.addEventListener("click", () => {
+			this.closeModal();
+			resolve(selectedDifficulty);
+		});
+
+		// Cancel button
+		const cancelBtn = document.createElement("button");
+		cancelBtn.className = "modal-btn modal-btn-cancel";
+		cancelBtn.textContent = "Cancel";
+		cancelBtn.addEventListener("click", () => {
+			this.closeModal();
+			resolve(null);
+		});
+
+		footer.appendChild(startBtn);
+		footer.appendChild(cancelBtn);
+
+		// Assemble modal
+		content.appendChild(header);
+		content.appendChild(body);
+		content.appendChild(footer);
+		this.modal.appendChild(content);
+		this.overlay.appendChild(this.modal);
+
+		// Add to DOM
+		document.body.appendChild(this.overlay);
+
+		// Handle ESC key and overlay click for difficulty modal
+		this.setupDifficultyEventListeners(resolve);
+
+		// Focus the start button
+		setTimeout(() => startBtn.focus(), 100);
+
+		// Animate in
+		requestAnimationFrame(() => {
+			this.overlay?.classList.add("modal-overlay-visible");
+			this.modal?.classList.add("modal-container-visible");
+		});
+	}
+
+	/**
 	 * Setup event listeners for modal interactions
 	 */
 	private setupEventListeners(
@@ -186,6 +355,35 @@ export class Modal {
 				config.onCancel?.();
 				this.closeModal();
 				resolve(false);
+			}
+		};
+
+		document.addEventListener("keydown", handleKeydown);
+		this.overlay.addEventListener("click", handleOverlayClick);
+	}
+
+	/**
+	 * Setup event listeners for difficulty modal
+	 */
+	private setupDifficultyEventListeners(
+		resolve: (value: number | null) => void
+	): void {
+		if (!this.overlay) return;
+
+		// ESC key handler
+		const handleKeydown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				this.closeModal();
+				resolve(null);
+				document.removeEventListener("keydown", handleKeydown);
+			}
+		};
+
+		// Overlay click handler
+		const handleOverlayClick = (e: MouseEvent) => {
+			if (e.target === this.overlay) {
+				this.closeModal();
+				resolve(null);
 			}
 		};
 

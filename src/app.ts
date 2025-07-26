@@ -54,7 +54,12 @@ async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 	const copyLinkBtn = document.getElementById("copy-link-btn");
 
 	if (btnStart) {
-		btnStart.addEventListener("click", () => gameManager.startNewGame(1));
+		btnStart.addEventListener("click", async () => {
+			const difficulty = await modal.selectDifficulty();
+			if (difficulty !== null) {
+				gameManager.startNewGame(difficulty);
+			}
+		});
 	}
 
 	if (btnContinue) {

@@ -180,6 +180,75 @@ body {
 	padding-top: 1.5rem;
 }
 
+/* Difficulty Selection Styles */
+.difficulty-selection {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin-top: 1rem;
+}
+
+.difficulty-option {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1rem;
+	border: 2px solid #e0e0e0;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	background: white;
+}
+
+.difficulty-option:hover {
+	border-color: #667eea;
+	background: #f8f9ff;
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.difficulty-option.selected {
+	border-color: #667eea;
+	background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+	box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.difficulty-stars {
+	display: flex;
+	gap: 0.25rem;
+	min-width: 120px;
+}
+
+.star {
+	font-size: 1.5rem;
+	transition: all 0.2s ease;
+}
+
+.star.filled {
+	color: #ffd700;
+	text-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+}
+
+.star.empty {
+	color: #ddd;
+}
+
+.difficulty-info {
+	flex: 1;
+}
+
+.difficulty-name {
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: #333;
+	margin-bottom: 0.25rem;
+}
+
+.difficulty-description {
+	font-size: 0.9rem;
+	color: #666;
+}
+
 /* Start Screen Layout */
 #start-screen {
 	text-align: center;
@@ -500,5 +569,31 @@ body {
 
 	.modal-btn {
 		width: 100%;
+	}
+
+	/* Difficulty selection responsive styles */
+	.difficulty-option {
+		flex-direction: column;
+		text-align: center;
+		gap: 0.5rem;
+		padding: 0.75rem;
+	}
+
+	.difficulty-stars {
+		justify-content: center;
+		min-width: auto;
+	}
+
+	.star {
+		font-size: 1.25rem;
+	}
+
+	.difficulty-name {
+		font-size: 1rem;
+		margin-bottom: 0.125rem;
+	}
+
+	.difficulty-description {
+		font-size: 0.8rem;
 	}
 }
