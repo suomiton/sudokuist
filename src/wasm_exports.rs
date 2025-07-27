@@ -3,14 +3,17 @@
 //! This module provides the public interface that JavaScript can call
 //! to interact with the Sudoku solver and generator.
 
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
-use crate::types::{DifficultyLevel, SolvingTechnique, BOARD_SIZE};
-use crate::generator::{PuzzleGenerator, GeneratorConfig};
-use crate::validator::{validate_board as internal_validate_board, has_unique_solution, solve_board};
 use crate::difficulty::analyze_difficulty;
+use crate::generator::{GeneratorConfig, PuzzleGenerator};
 use crate::solver::HumanStyleSolver;
+use crate::types::{DifficultyLevel, SolvingTechnique, BOARD_SIZE};
+use crate::validator::{
+    has_unique_solution, solve_board, validate_board as internal_validate_board,
+};
 
 /// JavaScript-compatible representation of a Sudoku board
 ///
@@ -36,7 +39,10 @@ fn to_js_board(board: &[Option<u8>]) -> JsBoard {
 /// # Returns
 /// Internal board format with Option<u8> values
 fn from_js_board(js_board: &[u8]) -> Vec<Option<u8>> {
-    js_board.iter().map(|&cell| if cell == 0 { None } else { Some(cell) }).collect()
+    js_board
+        .iter()
+        .map(|&cell| if cell == 0 { None } else { Some(cell) })
+        .collect()
 }
 
 /// Generate a new Sudoku puzzle with the specified difficulty
@@ -68,12 +74,17 @@ pub fn generate_puzzle(difficulty: u8) -> Vec<u8> {
     };
 
     let generator = PuzzleGenerator::with_difficulty(difficulty_level);
-    
+
     match generator.generate() {
         Some(puzzle) => {
             let js_board = to_js_board(&puzzle);
-            console::log_1(&format!("Successfully generated puzzle with {} clues", 
-                js_board.iter().filter(|&&cell| cell != 0).count()).into());
+            console::log_1(
+                &format!(
+                    "Successfully generated puzzle with {} clues",
+                    js_board.iter().filter(|&&cell| cell != 0).count()
+                )
+                .into(),
+            );
             js_board
         }
         None => {
@@ -117,7 +128,7 @@ pub fn generate_custom_puzzle(
     };
 
     let generator = PuzzleGenerator::new(config);
-    
+
     match generator.generate() {
         Some(puzzle) => to_js_board(&puzzle),
         None => {
@@ -148,12 +159,21 @@ pub fn generate_custom_puzzle(
 #[wasm_bindgen]
 pub fn validate_board(board: Vec<u8>) -> bool {
     if board.len() != BOARD_SIZE {
-        console::log_1(&format!("Invalid board size: expected {}, got {}", BOARD_SIZE, board.len()).into());
+        console::log_1(
+            &format!(
+                "Invalid board size: expected {}, got {}",
+                BOARD_SIZE,
+                board.len()
+            )
+            .into(),
+        );
         return false;
     }
 
     let internal_board = from_js_board(&board);
-    internal_validate_board(&internal_board).invalid_indices.is_empty()
+    internal_validate_board(&internal_board)
+        .invalid_indices
+        .is_empty()
 }
 
 /// Check if a puzzle has a unique solution
@@ -212,7 +232,7 @@ pub fn solve_puzzle(board: Vec<u8>) -> Vec<u8> {
     }
 
     let mut internal_board = from_js_board(&board);
-    
+
     if solve_board(&mut internal_board) {
         to_js_board(&internal_board)
     } else {
@@ -249,7 +269,7 @@ pub fn analyze_puzzle_difficulty(board: Vec<u8>) -> String {
     // Convert to JSON manually for simplicity
     let level_str = match analysis.level {
         DifficultyLevel::Easy => "Easy",
-        DifficultyLevel::Medium => "Medium", 
+        DifficultyLevel::Medium => "Medium",
         DifficultyLevel::Hard => "Hard",
         DifficultyLevel::Expert => "Expert",
     };
@@ -302,36 +322,41 @@ pub fn solve_with_techniques(board: Vec<u8>) -> String {
 
     let internal_board = from_js_board(&board);
     let mut solver = HumanStyleSolver::new(&internal_board);
-    
+
     let solved = solver.solve_with_techniques();
     let techniques_used = solver.get_techniques_used();
     let final_board = solver.get_board();
     let branching_factor = solver.calculate_branching_factor();
 
     // Convert techniques to strings
-    let technique_names: Vec<&str> = techniques_used.iter().map(|t| match t {
-        SolvingTechnique::NakedSingle => "Naked Single",
-        SolvingTechnique::HiddenSingle => "Hidden Single",
-        SolvingTechnique::NakedPair => "Naked Pair",
-        SolvingTechnique::HiddenPair => "Hidden Pair",
-        SolvingTechnique::BoxLineReduction => "Box/Line Reduction",
-        SolvingTechnique::PointingPairs => "Pointing Pair",
-        SolvingTechnique::XWing => "X-Wing",
-        SolvingTechnique::PointingTriples => "Pointing Triples",
-        SolvingTechnique::Swordfish => "Swordfish",
-        SolvingTechnique::Coloring => "Coloring",
-        SolvingTechnique::XYWing => "XY-Wing",
-        SolvingTechnique::XYChain => "XY-Chain",
-        SolvingTechnique::ForcingChain => "Forcing Chain",
-        SolvingTechnique::TrialAndError => "Trial and Error",
-    }).collect();
+    let technique_names: Vec<&str> = techniques_used
+        .iter()
+        .map(|t| match t {
+            SolvingTechnique::NakedSingle => "Naked Single",
+            SolvingTechnique::HiddenSingle => "Hidden Single",
+            SolvingTechnique::NakedPair => "Naked Pair",
+            SolvingTechnique::HiddenPair => "Hidden Pair",
+            SolvingTechnique::BoxLineReduction => "Box/Line Reduction",
+            SolvingTechnique::PointingPairs => "Pointing Pair",
+            SolvingTechnique::XWing => "X-Wing",
+            SolvingTechnique::PointingTriples => "Pointing Triples",
+            SolvingTechnique::Swordfish => "Swordfish",
+            SolvingTechnique::Coloring => "Coloring",
+            SolvingTechnique::XYWing => "XY-Wing",
+            SolvingTechnique::XYChain => "XY-Chain",
+            SolvingTechnique::ForcingChain => "Forcing Chain",
+            SolvingTechnique::TrialAndError => "Trial and Error",
+        })
+        .collect();
 
-    let techniques_json = technique_names.iter()
+    let techniques_json = technique_names
+        .iter()
         .map(|&t| format!(r#""{}""#, t))
         .collect::<Vec<_>>()
         .join(",");
 
-    let board_json = to_js_board(final_board).iter()
+    let board_json = to_js_board(final_board)
+        .iter()
         .map(|&n| n.to_string())
         .collect::<Vec<_>>()
         .join(",");
@@ -369,10 +394,10 @@ pub fn get_hint(board: Vec<u8>) -> String {
 
     let internal_board = from_js_board(&board);
     let mut solver = HumanStyleSolver::new(&internal_board);
-    
+
     // Try to make one step of progress
     let original_board = solver.get_board().to_vec();
-    
+
     // Attempt one round of basic techniques
     if solver.apply_basic_techniques() {
         // Find what changed
@@ -381,7 +406,8 @@ pub fn get_hint(board: Vec<u8>) -> String {
             if old != new && new.is_some() {
                 return format!(
                     r#"{{"cell": {}, "number": {}, "technique": "Basic solving technique"}}"#,
-                    index, new.unwrap()
+                    index,
+                    new.unwrap()
                 );
             }
         }
@@ -414,6 +440,260 @@ pub fn get_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// Create a new Sudoku game with specified difficulty (legacy compatibility)
+///
+/// This function maintains compatibility with existing JavaScript code that expects
+/// the old camelCase function names and return types.
+///
+/// # Arguments
+/// * `difficulty` - Difficulty level (1=Easy, 2=Medium, 3=Hard, 4=Expert)
+///
+/// # Returns
+/// JavaScript array with puzzle data (numbers for clues, undefined for empty cells)
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+pub fn createGame(difficulty: u8) -> JsValue {
+    console::log_1(&format!("Creating new game with difficulty: {}", difficulty).into());
+
+    let difficulty_level = match difficulty {
+        1 => DifficultyLevel::Easy,
+        2 => DifficultyLevel::Medium,
+        3 => DifficultyLevel::Hard,
+        4 => DifficultyLevel::Expert,
+        _ => {
+            console::log_1(&"Invalid difficulty level, using Medium".into());
+            DifficultyLevel::Medium
+        }
+    };
+
+    let generator = PuzzleGenerator::with_difficulty(difficulty_level);
+
+    match generator.generate() {
+        Some(puzzle) => {
+            // Convert to JavaScript array of numbers/undefined
+            let js_array = Array::new();
+            for cell in puzzle {
+                match cell {
+                    Some(num) => {
+                        js_array.push(&JsValue::from(num));
+                    }
+                    None => {
+                        js_array.push(&JsValue::undefined());
+                    }
+                }
+            }
+            js_array.into()
+        }
+        None => {
+            console::log_1(&"Failed to generate puzzle, returning empty array".into());
+            let js_array = Array::new();
+            for _ in 0..BOARD_SIZE {
+                js_array.push(&JsValue::undefined());
+            }
+            js_array.into()
+        }
+    }
+}
+
+/// Create a new Sudoku game with specified difficulty and seed (legacy compatibility)
+///
+/// # Arguments
+/// * `difficulty` - Difficulty level (1=Easy, 2=Medium, 3=Hard, 4=Expert)
+/// * `seed` - Seed for deterministic puzzle generation
+///
+/// # Returns
+/// JavaScript array with puzzle data (numbers for clues, undefined for empty cells)
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+pub fn createGameWithSeed(difficulty: u8, seed: u64) -> JsValue {
+    console::log_1(
+        &format!(
+            "Creating seeded game with difficulty: {}, seed: {}",
+            difficulty, seed
+        )
+        .into(),
+    );
+
+    // For now, we'll ignore the seed parameter and use the regular generator
+    // TODO: Implement seeded generation in the new architecture
+    let difficulty_level = match difficulty {
+        1 => DifficultyLevel::Easy,
+        2 => DifficultyLevel::Medium,
+        3 => DifficultyLevel::Hard,
+        4 => DifficultyLevel::Expert,
+        _ => DifficultyLevel::Medium,
+    };
+
+    let generator = PuzzleGenerator::with_difficulty(difficulty_level);
+
+    match generator.generate() {
+        Some(puzzle) => {
+            // Convert to JavaScript array of numbers/undefined
+            let js_array = Array::new();
+            for cell in puzzle {
+                match cell {
+                    Some(num) => {
+                        js_array.push(&JsValue::from(num));
+                    }
+                    None => {
+                        js_array.push(&JsValue::undefined());
+                    }
+                }
+            }
+            js_array.into()
+        }
+        None => {
+            console::log_1(&"Failed to generate seeded puzzle, returning empty array".into());
+            let js_array = Array::new();
+            for _ in 0..BOARD_SIZE {
+                js_array.push(&JsValue::undefined());
+            }
+            js_array.into()
+        }
+    }
+}
+
+/// Create a new Sudoku game with detailed difficulty analysis (legacy compatibility)
+///
+/// # Arguments
+/// * `difficulty` - Difficulty level (1=Easy, 2=Medium, 3=Hard, 4=Expert)
+///
+/// # Returns
+/// JavaScript object with puzzle and analysis data
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+pub fn createGameWithAnalysis(difficulty: u8) -> JsValue {
+    console::log_1(&format!("Creating game with analysis for difficulty: {}", difficulty).into());
+
+    let difficulty_level = match difficulty {
+        1 => DifficultyLevel::Easy,
+        2 => DifficultyLevel::Medium,
+        3 => DifficultyLevel::Hard,
+        4 => DifficultyLevel::Expert,
+        _ => DifficultyLevel::Medium,
+    };
+
+    let generator = PuzzleGenerator::with_difficulty(difficulty_level);
+
+    match generator.generate() {
+        Some(puzzle) => {
+            let analysis = analyze_difficulty(&puzzle);
+
+            // Convert puzzle to JavaScript array
+            let js_puzzle = Array::new();
+            for cell in puzzle {
+                match cell {
+                    Some(num) => {
+                        js_puzzle.push(&JsValue::from(num));
+                    }
+                    None => {
+                        js_puzzle.push(&JsValue::undefined());
+                    }
+                }
+            }
+
+            // Create result object
+            let result = js_sys::Object::new();
+            js_sys::Reflect::set(&result, &"puzzle".into(), &js_puzzle.into()).unwrap();
+
+            // Create analysis object manually for compatibility
+            let analysis_obj = js_sys::Object::new();
+            let level_str = match analysis.level {
+                DifficultyLevel::Easy => "Easy",
+                DifficultyLevel::Medium => "Medium",
+                DifficultyLevel::Hard => "Hard",
+                DifficultyLevel::Expert => "Expert",
+            };
+            js_sys::Reflect::set(
+                &analysis_obj,
+                &"level".into(),
+                &JsValue::from_str(level_str),
+            )
+            .unwrap();
+            js_sys::Reflect::set(
+                &analysis_obj,
+                &"technique_diversity".into(),
+                &JsValue::from(analysis.technique_diversity),
+            )
+            .unwrap();
+            js_sys::Reflect::set(
+                &analysis_obj,
+                &"branching_factor".into(),
+                &JsValue::from(analysis.branching_factor),
+            )
+            .unwrap();
+
+            js_sys::Reflect::set(&result, &"analysis".into(), &analysis_obj.into()).unwrap();
+
+            result.into()
+        }
+        None => {
+            console::log_1(&"Failed to generate puzzle for analysis".into());
+            js_sys::Object::new().into()
+        }
+    }
+}
+
+/// Validate a Sudoku board and return detailed validation result (legacy compatibility)
+///
+/// This function maintains compatibility with existing JavaScript code that expects
+/// a ValidationResult object instead of just a boolean.
+///
+/// # Arguments
+/// * `board` - JavaScript array representing current board state
+///
+/// # Returns
+/// JavaScript object with { invalidIndices: number[], isComplete: boolean }
+#[wasm_bindgen]
+#[allow(non_snake_case)]
+pub fn validateBoard(board: JsValue) -> JsValue {
+    console::log_1(&"Validating board".into());
+
+    // Convert JavaScript array to Rust Vec
+    let js_array: Array = board.into();
+    let mut rust_board = Vec::with_capacity(BOARD_SIZE);
+
+    for i in 0..BOARD_SIZE {
+        let cell = js_array.get(i as u32);
+        if cell.is_undefined() {
+            rust_board.push(None);
+        } else {
+            let num = cell.as_f64().unwrap_or(0.0) as u8;
+            if num >= 1 && num <= 9 {
+                rust_board.push(Some(num));
+            } else {
+                rust_board.push(None);
+            }
+        }
+    }
+
+    let result = internal_validate_board(&rust_board);
+
+    // Create JavaScript object manually for compatibility
+    let js_result = js_sys::Object::new();
+
+    // Convert invalid indices to JavaScript array
+    let invalid_indices_array = Array::new();
+    for &index in &result.invalid_indices {
+        invalid_indices_array.push(&JsValue::from(index));
+    }
+
+    js_sys::Reflect::set(
+        &js_result,
+        &"invalidIndices".into(),
+        &invalid_indices_array.into(),
+    )
+    .unwrap();
+    js_sys::Reflect::set(
+        &js_result,
+        &"isComplete".into(),
+        &JsValue::from(result.is_complete),
+    )
+    .unwrap();
+
+    js_result.into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -423,7 +703,7 @@ mod tests {
         let internal = vec![Some(1), None, Some(3), None];
         let js_board = to_js_board(&internal);
         assert_eq!(js_board, vec![1, 0, 3, 0]);
-        
+
         let back_to_internal = from_js_board(&js_board);
         assert_eq!(back_to_internal, internal);
     }
