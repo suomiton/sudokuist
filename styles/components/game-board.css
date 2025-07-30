@@ -1,0 +1,125 @@
+/* Game Board and Container Styles */
+#sudoku-container {
+	background: var(--color-surface);
+	padding: var(--gutter-2xl);
+	border-radius: var(--gutter-lg);
+	box-shadow: var(--shadow-card);
+	max-width: 600px;
+	width: 95%;
+	
+	.game-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: var(--gutter-xl);
+		padding-bottom: var(--gutter-lg);
+		border-bottom: 2px solid #f0f0f0;
+		
+		h2 {
+			font-size: 1.5rem;
+			color: var(--color-primary);
+			font-weight: 600;
+		}
+	}
+	
+	.header-controls {
+		display: flex;
+		gap: var(--gutter-sm);
+		
+		.control-btn {
+			padding: var(--gutter-sm) var(--gutter-lg);
+			font-size: 0.9rem;
+			background: #f8f9fa;
+			color: var(--color-primary);
+			border: 2px solid var(--color-primary);
+			border-radius: 6px;
+			cursor: pointer;
+			transition: all var(--transition-normal);
+			
+			&:hover {
+				background: var(--color-primary);
+				color: white;
+			}
+			
+			&:focus {
+				outline: 2px solid var(--color-primary-light);
+				outline-offset: 2px;
+			}
+		}
+	}
+}
+
+/* 9x9 Sudoku Board Grid */
+.board-grid {
+	display: grid;
+	grid-template-columns: repeat(9, 1fr);
+	grid-template-rows: repeat(9, 1fr);
+	gap: 1px;
+	background: var(--color-text);
+	border: 3px solid var(--color-text);
+	border-radius: var(--gutter-md);
+	padding: 3px;
+	aspect-ratio: 1;
+	max-width: 500px;
+	margin: 0 auto;
+}
+
+/* Individual Sudoku Cells */
+.cell {
+	background: var(--color-surface);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.2rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	min-height: 40px;
+	outline: none;
+	user-select: none;
+	
+	&:hover {
+		background: var(--color-background);
+	}
+	
+	&:focus {
+		background: #e8f5e8;
+		outline: 2px solid var(--color-primary);
+		outline-offset: -2px;
+	}
+	
+	/* Pre-filled cells (given/clues) */
+	&.given {
+		background: #f8f9fa;
+		color: var(--color-text);
+		font-weight: 700;
+		cursor: default;
+		
+		&:hover {
+			background: #f8f9fa;
+		}
+	}
+	
+	/* User-filled cells */
+	&.user-input {
+		color: var(--color-primary);
+		background: var(--color-surface);
+	}
+	
+	/* Invalid cells (conflict detection) */
+	&.invalid {
+		background: var(--color-error-bg);
+		color: var(--color-error);
+		animation: shake 0.3s ease-in-out;
+	}
+	
+	/* Bold lines every 3 cells for 3x3 sub-grids */
+	&:nth-child(3n):not(:nth-child(9n)) {
+		border-right: 2px solid var(--color-text);
+	}
+	
+	&:nth-child(n+19):nth-child(-n+27),
+	&:nth-child(n+46):nth-child(-n+54) {
+		border-bottom: 2px solid var(--color-text);
+	}
+}

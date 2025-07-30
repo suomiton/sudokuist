@@ -1,0 +1,24 @@
+/* Timer Component Styles */
+.timer-container {
+	text-align: center;
+	margin-top: var(--gutter-lg);
+	padding: var(--gutter-md) var(--gutter-lg);
+	background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+	border-radius: var(--gutter-md);
+	color: white;
+	box-shadow: var(--shadow-sm);
+	
+	.timer-label {
+		font-size: 0.9rem;
+		font-weight: 500;
+		margin-right: var(--gutter-sm);
+		opacity: 0.9;
+	}
+	
+	.timer-display {
+		font-family: 'Courier New', 'Monaco', monospace;
+		font-size: 1.2rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+	}
+}

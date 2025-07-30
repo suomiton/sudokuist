@@ -1,0 +1,14 @@
+/* Main CSS Entry Point for Sudoku Application */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+/* Import CSS modules in dependency order */
+@import './variables.css';
+@import './base.css';
+@import './components/modal.css';
+@import './components/difficulty-selection.css';
+@import './components/start-screen.css';
+@import './components/game-board.css';
+@import './components/timer.css';
+@import './components/share.css';
+@import './animations.css';
+@import './responsive.css';
