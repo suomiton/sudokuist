@@ -51,8 +51,14 @@ impl PuzzleGenerator {
     }
 
     #[inline]
-    fn hard_band_overshoot(&self, t: SolvingTechnique) -> bool {
-        self.is_hard_level() && t > SolvingTechnique::Swordfish
+    fn difficulty_overshoot(&self, t: SolvingTechnique) -> bool {
+        use SolvingTechnique::*;
+        match self.config.target_difficulty {
+            DifficultyLevel::Easy => t > HiddenSingle,
+            DifficultyLevel::Medium => t > BoxLineReduction,
+            DifficultyLevel::Hard => t > Swordfish,
+            DifficultyLevel::Expert => false, // Expert has no upper bound
+        }
     }
 
     pub fn new(config: GeneratorConfig) -> Self {
@@ -221,7 +227,8 @@ impl PuzzleGenerator {
 
             /*── 4. remember best fallback and Hard candidates ──*/
             if self.meets_clue_constraints(&puzzle) {
-                if !self.is_hard_level() || self.in_hard_band(ht.clone()) {
+                // Only store last_ok if puzzle actually matches target difficulty
+                if self.difficulty_matches_target(&analysis) {
                     last_ok = puzzle.clone();
                 }
 
@@ -231,23 +238,11 @@ impl PuzzleGenerator {
                 }
             }
 
-            /*── 5. Hard overshoot guard - improved fallback ──*/
-            if self.hard_band_overshoot(ht.clone()) {
-                // First try to return current puzzle if it's valid and in Hard band
-                if self.validate_puzzle(&puzzle) {
-                    return Some(puzzle);
-                }
-
-                // If we have a good Hard candidate, use it
-                if let Some(ref candidate) = best_hard_candidate {
-                    if self.validate_puzzle(candidate) {
-                        return Some(candidate.clone());
-                    }
-                }
-
-                // Fall back to last valid puzzle
+            /*── 5. Difficulty overshoot guard - undo and continue ──*/
+            if self.difficulty_overshoot(ht.clone()) {
+                // Undo the offending removal and continue
                 puzzle[idx] = saved;
-                break; // Exit loop to try fallback, don't abandon entirely
+                continue;
             }
 
             /*── 6. success for any level ──*/
@@ -647,10 +642,10 @@ mod tests {
         assert!(!generator.in_hard_band(ForcingChain)); // too hard
 
         // Test overshoot detection
-        assert!(!generator.hard_band_overshoot(XWing));
-        assert!(!generator.hard_band_overshoot(Swordfish));
-        assert!(generator.hard_band_overshoot(XYChain));
-        assert!(generator.hard_band_overshoot(ForcingChain));
+        assert!(!generator.difficulty_overshoot(XWing));
+        assert!(!generator.difficulty_overshoot(Swordfish));
+        assert!(generator.difficulty_overshoot(XYChain));
+        assert!(generator.difficulty_overshoot(ForcingChain));
     }
 
     #[test]

@@ -205,10 +205,11 @@ export class GameManager {
 	 * Show the solution using WASM solver
 	 */
 	async showSolution(): Promise<void> {
-		const solution = wasm.solveBoard(
-			this.boardState.map((val) => val ?? undefined)
-		);
-		Array.from(solution).forEach((value, index) => {
+		// Convert board state to format expected by WASM (0 for empty cells)
+		const wasmBoard = this.boardState.map((val) => val ?? 0);
+		const solution = wasm.solve_puzzle(wasmBoard);
+
+		solution.forEach((value: number, index: number) => {
 			this.boardState[index] = value;
 			const cell = document.querySelector(
 				`[data-index="${index}"]`

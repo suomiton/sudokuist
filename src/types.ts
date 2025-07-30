@@ -28,7 +28,7 @@ export interface WasmModule {
 	createGame(difficulty: number): (number | undefined)[];
 	createGameWithSeed(difficulty: number, seed: bigint): (number | undefined)[];
 	validateBoard(board: (number | undefined)[]): ValidationResult;
-	solveBoard(board: (number | undefined)[]): Uint8Array;
+	solve_puzzle(board: number[]): number[];
 }
 
 declare global {
