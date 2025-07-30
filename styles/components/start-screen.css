@@ -7,44 +7,44 @@
 	box-shadow: var(--shadow-card);
 	max-width: 400px;
 	width: 90%;
-	
-	h1 {
-		font-size: 2.5rem;
-		margin-bottom: var(--gutter-2xl);
-		color: var(--color-primary);
-		font-weight: 700;
-	}
-	
-	.button-container {
-		display: flex;
-		flex-direction: column;
-		gap: var(--gutter-lg);
-	}
-	
-	.game-btn {
-		padding: var(--gutter-lg) var(--gutter-2xl);
-		font-size: 1.1rem;
-		font-weight: 600;
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		color: white;
-		border: none;
-		border-radius: var(--gutter-md);
-		cursor: pointer;
-		transition: all var(--transition-normal);
-		box-shadow: var(--shadow-md);
-		
-		&:hover {
-			transform: translateY(-2px);
-			box-shadow: var(--shadow-lg);
-		}
-		
-		&:active {
-			transform: translateY(0);
-		}
-		
-		&:focus {
-			outline: 2px solid var(--color-primary-light);
-			outline-offset: 2px;
-		}
-	}
+}
+
+#start-screen h1 {
+	font-size: 2.5rem;
+	margin-bottom: var(--gutter-2xl);
+	color: var(--color-primary);
+	font-weight: 700;
+}
+
+#start-screen .button-container {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gutter-lg);
+}
+
+#start-screen .game-btn {
+	padding: var(--gutter-lg) var(--gutter-2xl);
+	font-size: 1.1rem;
+	font-weight: 600;
+	background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+	color: white;
+	border: none;
+	border-radius: var(--gutter-md);
+	cursor: pointer;
+	transition: all var(--transition-normal);
+	box-shadow: var(--shadow-md);
+}
+
+#start-screen .game-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-lg);
+}
+
+#start-screen .game-btn:active {
+	transform: translateY(0);
+}
+
+#start-screen .game-btn:focus {
+	outline: 2px solid var(--color-primary-light);
+	outline-offset: 2px;
 }

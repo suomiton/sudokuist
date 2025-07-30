@@ -6,47 +6,47 @@
 	box-shadow: var(--shadow-card);
 	max-width: 600px;
 	width: 95%;
-	
-	.game-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--gutter-xl);
-		padding-bottom: var(--gutter-lg);
-		border-bottom: 2px solid #f0f0f0;
-		
-		h2 {
-			font-size: 1.5rem;
-			color: var(--color-primary);
-			font-weight: 600;
-		}
-	}
-	
-	.header-controls {
-		display: flex;
-		gap: var(--gutter-sm);
-		
-		.control-btn {
-			padding: var(--gutter-sm) var(--gutter-lg);
-			font-size: 0.9rem;
-			background: #f8f9fa;
-			color: var(--color-primary);
-			border: 2px solid var(--color-primary);
-			border-radius: 6px;
-			cursor: pointer;
-			transition: all var(--transition-normal);
-			
-			&:hover {
-				background: var(--color-primary);
-				color: white;
-			}
-			
-			&:focus {
-				outline: 2px solid var(--color-primary-light);
-				outline-offset: 2px;
-			}
-		}
-	}
+}
+
+#sudoku-container .game-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--gutter-xl);
+	padding-bottom: var(--gutter-lg);
+	border-bottom: 2px solid #f0f0f0;
+}
+
+#sudoku-container .game-header h2 {
+	font-size: 1.5rem;
+	color: var(--color-primary);
+	font-weight: 600;
+}
+
+#sudoku-container .header-controls {
+	display: flex;
+	gap: var(--gutter-sm);
+}
+
+#sudoku-container .header-controls .control-btn {
+	padding: var(--gutter-sm) var(--gutter-lg);
+	font-size: 0.9rem;
+	background: #f8f9fa;
+	color: var(--color-primary);
+	border: 2px solid var(--color-primary);
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all var(--transition-normal);
+}
+
+#sudoku-container .header-controls .control-btn:hover {
+	background: var(--color-primary);
+	color: white;
+}
+
+#sudoku-container .header-controls .control-btn:focus {
+	outline: 2px solid var(--color-primary-light);
+	outline-offset: 2px;
 }
 
 /* 9x9 Sudoku Board Grid */
@@ -77,49 +77,49 @@
 	min-height: 40px;
 	outline: none;
 	user-select: none;
-	
-	&:hover {
-		background: var(--color-background);
-	}
-	
-	&:focus {
-		background: #e8f5e8;
-		outline: 2px solid var(--color-primary);
-		outline-offset: -2px;
-	}
-	
-	/* Pre-filled cells (given/clues) */
-	&.given {
-		background: #f8f9fa;
-		color: var(--color-text);
-		font-weight: 700;
-		cursor: default;
-		
-		&:hover {
-			background: #f8f9fa;
-		}
-	}
-	
-	/* User-filled cells */
-	&.user-input {
-		color: var(--color-primary);
-		background: var(--color-surface);
-	}
-	
-	/* Invalid cells (conflict detection) */
-	&.invalid {
-		background: var(--color-error-bg);
-		color: var(--color-error);
-		animation: shake 0.3s ease-in-out;
-	}
-	
-	/* Bold lines every 3 cells for 3x3 sub-grids */
-	&:nth-child(3n):not(:nth-child(9n)) {
-		border-right: 2px solid var(--color-text);
-	}
-	
-	&:nth-child(n+19):nth-child(-n+27),
-	&:nth-child(n+46):nth-child(-n+54) {
-		border-bottom: 2px solid var(--color-text);
-	}
+}
+
+.cell:hover {
+	background: var(--color-background);
+}
+
+.cell:focus {
+	background: #e8f5e8;
+	outline: 2px solid var(--color-primary);
+	outline-offset: -2px;
+}
+
+/* Pre-filled cells (given/clues) */
+.cell.given {
+	background: #f8f9fa;
+	color: var(--color-text);
+	font-weight: 700;
+	cursor: default;
+}
+
+.cell.given:hover {
+	background: #f8f9fa;
+}
+
+/* User-filled cells */
+.cell.user-input {
+	color: var(--color-primary);
+	background: var(--color-surface);
+}
+
+/* Invalid cells (conflict detection) */
+.cell.invalid {
+	background: var(--color-error-bg);
+	color: var(--color-error);
+	animation: shake 0.3s ease-in-out;
+}
+
+/* Bold lines every 3 cells for 3x3 sub-grids */
+.cell:nth-child(3n):not(:nth-child(9n)) {
+	border-right: 2px solid var(--color-text);
+}
+
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54) {
+	border-bottom: 2px solid var(--color-text);
 }

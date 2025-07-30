@@ -7,18 +7,18 @@
 	border-radius: var(--gutter-md);
 	color: white;
 	box-shadow: var(--shadow-sm);
-	
-	.timer-label {
-		font-size: 0.9rem;
-		font-weight: 500;
-		margin-right: var(--gutter-sm);
-		opacity: 0.9;
-	}
-	
-	.timer-display {
-		font-family: 'Courier New', 'Monaco', monospace;
-		font-size: 1.2rem;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-	}
+}
+
+.timer-container .timer-label {
+	font-size: 0.9rem;
+	font-weight: 500;
+	margin-right: var(--gutter-sm);
+	opacity: 0.9;
+}
+
+.timer-container .timer-display {
+	font-family: 'Courier New', 'Monaco', monospace;
+	font-size: 1.2rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
 }

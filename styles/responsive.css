@@ -2,81 +2,77 @@
 @media (max-width: 600px) {
 	#sudoku-container {
 		padding: var(--gutter-lg);
-		
+
 		.game-header {
 			flex-direction: column;
 			gap: var(--gutter-lg);
 			text-align: center;
 		}
 	}
-	
+
 	.cell {
 		font-size: 1rem;
 		min-height: 35px;
 	}
-	
+
 	#start-screen {
 		padding: var(--gutter-2xl);
-		
+
 		h1 {
 			font-size: 2rem;
 		}
 	}
-	
+
 	.share-container {
 		.share-link-container {
 			flex-direction: column;
 			gap: var(--gutter-sm);
-			
+
 			.copy-btn {
 				width: 100%;
 			}
 		}
 	}
-	
+
 	/* Modal responsive styles */
-	.modal {
-		&-container {
-			margin: var(--gutter-lg);
-			max-width: calc(100vw - var(--gutter-2xl));
-		}
-		
-		&-footer {
-			flex-direction: column;
-			gap: var(--gutter-md);
-			
-			.modal-btn {
-				width: 100%;
-			}
-		}
+	.modal-container {
+		margin: var(--gutter-lg);
+		max-width: calc(100vw - var(--gutter-2xl));
 	}
-	
+
+	.modal-footer {
+		flex-direction: column;
+		gap: var(--gutter-md);
+	}
+
+	.modal-footer .modal-btn {
+		width: 100%;
+	}
+
 	/* Difficulty selection responsive styles */
-	.difficulty {
-		&-option {
-			flex-direction: column;
-			text-align: center;
-			gap: var(--gutter-sm);
-			padding: var(--gutter-md);
-		}
-		
-		&-stars {
-			justify-content: center;
-			min-width: auto;
-			
-			.star {
-				font-size: 1.25rem;
-			}
-		}
-		
-		&-name {
-			font-size: 1rem;
-			margin-bottom: calc(var(--gutter-base) * 0.125);
-		}
-		
-		&-description {
-			font-size: 0.8rem;
-		}
+	.difficulty-option {
+		flex-direction: column;
+		text-align: center;
+		gap: var(--gutter-sm);
+		padding: var(--gutter-md);
+	}
+
+	.difficulty-stars {
+		justify-content: center;
+		min-width: auto;
+	}
+
+	.difficulty-stars .star {
+		font-size: 1.25rem;
+	}
+
+	.difficulty-name {
+		font-size: 1rem;
+		margin-bottom: calc(var(--gutter-base) * 0.125);
+	}
+
+	.difficulty-description {
+		font-size: 0.8rem;
 	}
 }
 
@@ -84,20 +80,21 @@
 @media (min-width: 1200px) {
 	#sudoku-container {
 		max-width: 700px;
-		
+
 		.cell {
 			font-size: 1.4rem;
 			min-height: 50px;
 		}
 	}
-	
+
 	.modal-container {
 		max-width: 600px;
 	}
 }
 
 /* High DPI / Retina displays */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+@media (-webkit-min-device-pixel-ratio: 2),
+(min-resolution: 192dpi) {
 	.cell {
 		/* Ensure crisp text rendering on high-DPI displays */
 		-webkit-font-smoothing: antialiased;

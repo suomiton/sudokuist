@@ -28,17 +28,17 @@ body {
 	cursor: pointer;
 	transition: all var(--transition-normal);
 	outline: none;
-	
-	&:focus {
-		outline: 2px solid var(--color-primary);
-		outline-offset: 2px;
-	}
-	
-	&:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-		transform: none !important;
-	}
+}
+
+.btn:focus {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
+}
+
+.btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none !important;
 }
 
 /* Primary Button Variant */
@@ -46,15 +46,15 @@ body {
 	background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
 	color: white;
 	box-shadow: var(--shadow-md);
-	
-	&:hover:not(:disabled) {
-		transform: translateY(-1px);
-		box-shadow: var(--shadow-lg);
-	}
-	
-	&:active:not(:disabled) {
-		transform: translateY(0);
-	}
+}
+
+.btn--primary:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-lg);
+}
+
+.btn--primary:active:not(:disabled) {
+	transform: translateY(0);
 }
 
 /* Secondary Button Variant */
@@ -62,20 +62,20 @@ body {
 	background: #f8f9fa;
 	color: var(--color-text-light);
 	border: 2px solid var(--color-border);
-	
-	&:hover:not(:disabled) {
-		background: #e9ecef;
-		border-color: #ccc;
-	}
+}
+
+.btn--secondary:hover:not(:disabled) {
+	background: #e9ecef;
+	border-color: #ccc;
 }
 
 /* Success Button Variant */
 .btn--success {
 	background: var(--color-success);
 	color: white;
-	
-	&:hover:not(:disabled) {
-		background: var(--color-fern-green);
-		transform: translateY(-1px);
-	}
+}
+
+.btn--success:hover:not(:disabled) {
+	background: var(--color-fern-green);
+	transform: translateY(-1px);
 }

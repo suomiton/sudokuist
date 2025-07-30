@@ -3,22 +3,27 @@
 	/* Typography */
 	--font-family: "Share Tech Mono", monospace;
 	--font-size-base: 16px;
-	
+
 	/* Spacing */
 	--gutter-base: 8px;
-	--gutter-sm: calc(var(--gutter-base) * 0.5); /* 4px */
-	--gutter-md: var(--gutter-base); /* 8px */
-	--gutter-lg: calc(var(--gutter-base) * 2); /* 16px */
-	--gutter-xl: calc(var(--gutter-base) * 3); /* 24px */
-	--gutter-2xl: calc(var(--gutter-base) * 4); /* 32px */
-	
+	--gutter-sm: calc(var(--gutter-base) * 0.5);
+	/* 4px */
+	--gutter-md: var(--gutter-base);
+	/* 8px */
+	--gutter-lg: calc(var(--gutter-base) * 2);
+	/* 16px */
+	--gutter-xl: calc(var(--gutter-base) * 3);
+	/* 24px */
+	--gutter-2xl: calc(var(--gutter-base) * 4);
+	/* 32px */
+
 	/* Color Palette - Nature-inspired */
 	--color-timberwolf: #DAD7CD;
 	--color-sage: #A3B18A;
 	--color-fern-green: #588157;
 	--color-hunter-green: #3A5A40;
 	--color-brunswick-green: #344E41;
-	
+
 	/* UI Colors */
 	--color-primary: var(--color-hunter-green);
 	--color-primary-light: var(--color-sage);
@@ -28,7 +33,7 @@
 	--color-text: #333333;
 	--color-text-light: #666666;
 	--color-border: #e0e0e0;
-	
+
 	/* Status Colors */
 	--color-error: #d32f2f;
 	--color-error-bg: #ffebee;
@@ -36,14 +41,14 @@
 	--color-warning-bg: #fff3e0;
 	--color-success: var(--color-fern-green);
 	--color-success-bg: #e8f5e8;
-	
+
 	/* Shadow Variables */
 	--shadow-sm: 0 4px 15px rgba(58, 90, 64, 0.2);
 	--shadow-md: 0 4px 15px rgba(58, 90, 64, 0.3);
 	--shadow-lg: 0 6px 20px rgba(58, 90, 64, 0.4);
 	--shadow-card: 0 20px 40px rgba(0, 0, 0, 0.1);
 	--shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.3);
-	
+
 	/* Transition Variables */
 	--transition-fast: 0.2s ease;
 	--transition-normal: 0.3s ease;
