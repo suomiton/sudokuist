@@ -37,3 +37,7 @@ coverage/
 # OS generated files
 Thumbs.db
 ehthumbs.db
+
+# Build analysis
+stats.html
+bundle-analyzer-report.html
