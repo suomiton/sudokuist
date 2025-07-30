@@ -62,7 +62,7 @@ export default defineConfig(({ command, mode }) => {
 			}
 		},
 		optimizeDeps: {
-			exclude: ['../pkg/sudoku_wasm.js']
+			exclude: ['./src/pkg/sudoku_wasm.js']
 		},
 		assetsInclude: ['**/*.wasm'],
 		// CSS processing

@@ -23,7 +23,7 @@ declare module "./pkg/sudoku_wasm.js" {
 	export function solveBoard(board: any): Uint8Array;
 }
 
-declare module "../pkg/sudoku_wasm.js" {
+declare module "./pkg/sudoku_wasm.js" {
 	export default function init(): Promise<void>;
 	export function createBoard(): Uint8Array;
 	export function createGame(difficulty: number): any;

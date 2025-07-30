@@ -45,7 +45,18 @@ jobs:
     - name: 📚 Checkout
       uses: actions/checkout@v4
 
-    - name: 🟢 Setup Node.js
+    - name: 🦀 Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: � Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: 🌐 Install wasm-pack
+      uses: jetli/wasm-pack-action@v0.4.0
+
+    - name: �🟢 Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
@@ -53,6 +64,12 @@ jobs:
 
     - name: 📦 Install dependencies
       run: npm ci
+
+    - name: 🦀 Build WASM for TypeScript
+      run: |
+        echo "Building WASM files needed for TypeScript compilation..."
+        npm run build-wasm-release
+        cp -r pkg src/
 
     - name: 🔍 Type check
       run: npm run type-check

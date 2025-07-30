@@ -12,8 +12,8 @@ export async function initializeWasm(): Promise<void> {
 		// Import WASM module - use different paths for dev vs production
 		let wasmModule;
 		if (import.meta.env.DEV) {
-			// During development, import from the pkg directory
-			wasmModule = await import("../pkg/sudoku_wasm.js");
+			// During development, import from the copied pkg directory in src
+			wasmModule = await import("./pkg/sudoku_wasm.js");
 			await wasmModule.default();
 		} else {
 			// In production, load from public directory
