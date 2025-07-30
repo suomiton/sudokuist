@@ -18,8 +18,8 @@ export interface CellRecord {
 }
 
 export interface ValidationResult {
-	invalid_indices: number[];
-	is_complete: boolean;
+	invalidIndices: number[];
+	isComplete: boolean;
 }
 
 // WASM module interface (will be available after loading)

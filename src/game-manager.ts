@@ -170,7 +170,7 @@ export class GameManager {
 		});
 
 		// Mark invalid cells
-		validation.invalid_indices.forEach((index: number) => {
+		validation.invalidIndices.forEach((index: number) => {
 			const cell = document.querySelector(`[data-index="${index}"]`);
 			if (cell) {
 				cell.classList.add("invalid");
@@ -178,7 +178,7 @@ export class GameManager {
 		});
 
 		// Handle completion
-		if (validation.is_complete) {
+		if (validation.isComplete) {
 			// Stop the timer when puzzle is completed
 			this.stopTimer();
 
