@@ -217,31 +217,31 @@ export class Modal {
 				level: 1,
 				name: "Very Easy",
 				stars: 1,
-				description: "~51 clues, straightforward",
+				description: "35-45 clues, straightforward",
 			},
 			{
 				level: 2,
 				name: "Easy",
 				stars: 2,
-				description: "~46 clues, gentle challenge",
+				description: "35-45 clues, gentle challenge",
 			},
 			{
 				level: 3,
 				name: "Medium",
 				stars: 3,
-				description: "~41 clues, moderate difficulty",
+				description: "30-35 clues, moderate difficulty",
 			},
 			{
 				level: 4,
 				name: "Hard",
 				stars: 4,
-				description: "~36 clues, challenging",
+				description: "25-30 clues, challenging",
 			},
 			{
 				level: 5,
 				name: "Very Hard",
 				stars: 5,
-				description: "~31 clues, expert level",
+				description: "17-24 clues, expert level",
 			},
 		];
 

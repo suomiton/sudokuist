@@ -54,6 +54,8 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
     match clue_count {
         45..=81 => SolvingTechnique::NakedSingle,
         35..=44 => SolvingTechnique::HiddenSingle,
+
+        // Medium range: 30-35 clues
         32..=34 => {
             if complexity > 2.5 {
                 SolvingTechnique::BoxLineReduction
@@ -61,46 +63,43 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
                 SolvingTechnique::HiddenPair
             }
         }
-        28..=31 => {
-            // Hard difficulty range - prefer XWing techniques
+        30..=31 => SolvingTechnique::BoxLineReduction,
+
+        // Hard range: 25-30 clues - should require XWing to Swordfish
+        28..=29 => {
             if complexity > 3.0 {
                 SolvingTechnique::XWing
             } else {
                 SolvingTechnique::BoxLineReduction
             }
         }
-        24..=27 => {
-            // Solid Hard range
+        26..=27 => SolvingTechnique::XWing,
+        25 => {
             if complexity > 3.5 {
                 SolvingTechnique::Swordfish
             } else {
                 SolvingTechnique::XWing
             }
         }
-        22..=23 => {
-            // Upper Hard range or lower Expert
+
+        // Expert range: 17-24 clues - should require XYWing and above
+        22..=24 => {
             if complexity > 4.0 {
-                SolvingTechnique::XYWing // Lower Expert technique
+                SolvingTechnique::XYWing
             } else {
                 SolvingTechnique::Swordfish
             }
         }
-        20..=21 => {
-            // Expert range
-            SolvingTechnique::XYWing
-        }
+        20..=21 => SolvingTechnique::XYWing,
         18..=19 => {
-            // Higher Expert range
-            if complexity > 4.0 {
+            if complexity > 4.5 {
                 SolvingTechnique::XYChain
             } else {
                 SolvingTechnique::XYWing
             }
         }
-        17 => {
-            // Very high Expert
-            SolvingTechnique::XYChain
-        }
+        17 => SolvingTechnique::XYChain,
+
         _ => SolvingTechnique::ForcingChain,
     }
 }

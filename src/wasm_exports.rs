@@ -457,9 +457,10 @@ pub fn createGame(difficulty: u8) -> JsValue {
 
     let difficulty_level = match difficulty {
         1 => DifficultyLevel::Easy,
-        2 => DifficultyLevel::Medium,
-        3 => DifficultyLevel::Hard,
-        4 => DifficultyLevel::Expert,
+        2 => DifficultyLevel::Easy, // "Very Easy" -> Easy (more clues)
+        3 => DifficultyLevel::Medium,
+        4 => DifficultyLevel::Hard,
+        5 => DifficultyLevel::Expert, // "Very Hard" -> Expert
         _ => {
             console::log_1(&"Invalid difficulty level, using Medium".into());
             DifficultyLevel::Medium
@@ -518,9 +519,10 @@ pub fn createGameWithSeed(difficulty: u8, seed: u64) -> JsValue {
     // TODO: Implement seeded generation in the new architecture
     let difficulty_level = match difficulty {
         1 => DifficultyLevel::Easy,
-        2 => DifficultyLevel::Medium,
-        3 => DifficultyLevel::Hard,
-        4 => DifficultyLevel::Expert,
+        2 => DifficultyLevel::Easy, // "Very Easy" -> Easy (more clues)
+        3 => DifficultyLevel::Medium,
+        4 => DifficultyLevel::Hard,
+        5 => DifficultyLevel::Expert, // "Very Hard" -> Expert
         _ => DifficultyLevel::Medium,
     };
 
@@ -567,9 +569,10 @@ pub fn createGameWithAnalysis(difficulty: u8) -> JsValue {
 
     let difficulty_level = match difficulty {
         1 => DifficultyLevel::Easy,
-        2 => DifficultyLevel::Medium,
-        3 => DifficultyLevel::Hard,
-        4 => DifficultyLevel::Expert,
+        2 => DifficultyLevel::Easy, // "Very Easy" -> Easy (more clues)
+        3 => DifficultyLevel::Medium,
+        4 => DifficultyLevel::Hard,
+        5 => DifficultyLevel::Expert, // "Very Hard" -> Expert
         _ => DifficultyLevel::Medium,
     };
 

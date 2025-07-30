@@ -560,9 +560,6 @@ export class GameManager {
 		}, 1000);
 	}
 
-	/**
-	 * Stop the timer
-	 */
 	private stopTimer(): void {
 		if (this.timerInterval !== null) {
 			clearInterval(this.timerInterval);

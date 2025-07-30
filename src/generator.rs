@@ -69,17 +69,17 @@ impl PuzzleGenerator {
                 cfg.max_clues = 45;
             }
             DifficultyLevel::Medium => {
-                cfg.min_clues = 28;
+                cfg.min_clues = 30;
                 cfg.max_clues = 35;
             }
             DifficultyLevel::Hard => {
-                cfg.min_clues = 22;
-                cfg.max_clues = 28;
+                cfg.min_clues = 25;
+                cfg.max_clues = 30;
                 cfg.max_attempts = 5_000; // Increase attempts for Hard difficulty
             }
             DifficultyLevel::Expert => {
                 cfg.min_clues = 17;
-                cfg.max_clues = 25;
+                cfg.max_clues = 24;
             }
         }
         Self::new(cfg)
@@ -469,8 +469,8 @@ mod tests {
                 );
 
                 assert!(
-                    clue_count >= 28 && clue_count <= 35,
-                    "Medium clue count should be 28-35, got {}",
+                    clue_count >= 30 && clue_count <= 35,
+                    "Medium clue count should be 30-35, got {}",
                     clue_count
                 );
                 assert!(
@@ -493,8 +493,8 @@ mod tests {
         println!("Testing Hard difficulty generation...");
         let mut generator_config = GeneratorConfig::default();
         generator_config.target_difficulty = DifficultyLevel::Hard;
-        generator_config.min_clues = 22;
-        generator_config.max_clues = 28;
+        generator_config.min_clues = 25;
+        generator_config.max_clues = 30;
         generator_config.max_attempts = 100; // Limit for test to avoid hanging
 
         let generator = PuzzleGenerator::new(generator_config);
@@ -513,8 +513,8 @@ mod tests {
                 );
 
                 assert!(
-                    clue_count >= 22 && clue_count <= 28,
-                    "Hard clue count should be 22-28, got {}",
+                    clue_count >= 25 && clue_count <= 30,
+                    "Hard clue count should be 25-30, got {}",
                     clue_count
                 );
                 assert!(
@@ -568,7 +568,7 @@ mod tests {
         let mut generator_config = GeneratorConfig::default();
         generator_config.target_difficulty = DifficultyLevel::Expert;
         generator_config.min_clues = 17;
-        generator_config.max_clues = 25;
+        generator_config.max_clues = 24;
         generator_config.max_attempts = 50; // Limit attempts to avoid hanging
 
         let generator = PuzzleGenerator::new(generator_config);
@@ -587,8 +587,8 @@ mod tests {
                 );
 
                 assert!(
-                    clue_count >= 17 && clue_count <= 25,
-                    "Expert clue count should be 17-25, got {}",
+                    clue_count >= 17 && clue_count <= 24,
+                    "Expert clue count should be 17-24, got {}",
                     clue_count
                 );
                 assert!(
