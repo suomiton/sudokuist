@@ -1,6 +1,11 @@
 # Sudokuist
 
+[![Deploy to GitHub Pages](https://github.com/suomiton/sudokuist/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/suomiton/sudokuist/actions/workflows/deploy-pages.yml)
+[![Build and Test](https://github.com/suomiton/sudokuist/actions/workflows/build-test.yml/badge.svg)](https://github.com/suomiton/sudokuist/actions/workflows/build-test.yml)
+
 A minimal web-based Sudoku application built with Rust WASM backend and TypeScript frontend.
+
+🎮 **Play Live**: [https://suomiton.github.io/sudokuist/](https://suomiton.github.io/sudokuist/)
 
 ## Features
 
@@ -120,6 +125,36 @@ npm run type-check
 3. **Continue**: Loads most recent game from database, restores board state
 4. **Gameplay**: Click cells to edit, automatic validation and persistence
 5. **URL Routing**: `?gameId=<uuid>` enables direct game links
+
+## Deployment
+
+This project is automatically deployed to GitHub Pages using GitHub Actions.
+
+### Automatic Deployment
+
+- **Production**: Deployed automatically on push to `main` branch
+- **Live Site**: [https://suomiton.github.io/sudokuist/](https://suomiton.github.io/sudokuist/)
+- **Build Status**: Check the badges above for current deployment status
+
+### Local Production Build
+
+```bash
+# Full production build with optimizations
+npm run build:prod
+
+# Preview production build locally
+npm run preview
+```
+
+The deployment includes:
+
+- ✅ WASM compilation with release optimizations
+- ✅ JavaScript minification and tree shaking
+- ✅ CSS minification and optimization
+- ✅ Content hashing for cache busting
+- ✅ Gzip compression analysis
+
+For detailed deployment information, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Development Notes
 

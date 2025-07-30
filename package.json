@@ -12,6 +12,8 @@
 		"build:prod": "./build-prod.sh",
 		"build:analyze": "npm run build-wasm-release && cp -r pkg src/ && vite build --mode production && npx vite-bundle-analyzer dist/stats.html",
 		"build:preview": "npm run build && vite preview",
+		"deploy:preview": "npm run build:prod && npm run preview",
+		"deploy:pages": "echo 'Push to main branch to trigger GitHub Pages deployment'",
 		"dev": "npm run build-wasm && cp -r pkg src/ && vite --port 3000",
 		"dev-python": "./dev-setup.sh && npx vite --port 3000",
 		"serve": "python3 server.py",
