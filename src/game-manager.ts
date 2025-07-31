@@ -20,8 +20,12 @@ export class GameManager {
 	private startTime: number | null = null;
 	private elapsedTime: number = 0; // in seconds
 
+	// Numpad properties
+	private selectedCellIndex: number | null = null;
+
 	constructor(db: DatabaseManager) {
 		this.db = db;
+		this.setupNumpad();
 	}
 
 	/**
@@ -139,6 +143,20 @@ export class GameManager {
 		if (this.givenCells.has(cellIndex)) return; // Can't modify given cells
 
 		this.boardState[cellIndex] = value;
+
+		// Update the visual cell
+		const cell = document.querySelector(
+			`[data-index="${cellIndex}"]`
+		) as HTMLElement;
+		if (cell) {
+			if (value !== null) {
+				cell.textContent = value.toString();
+				cell.classList.add("user-input");
+			} else {
+				cell.textContent = "";
+				cell.classList.remove("user-input");
+			}
+		}
 
 		if (this.currentGameId) {
 			const cellRecord: CellRecord = {
@@ -279,50 +297,9 @@ export class GameManager {
 	private setupCellInteraction(cell: HTMLElement, index: number): void {
 		if (this.givenCells.has(index)) return; // Given cells are not editable
 
+		// Universal interaction - show numpad for all devices
 		cell.addEventListener("click", () => {
-			cell.contentEditable = "true";
-			cell.focus();
-
-			// Select all text for easy replacement
-			const range = document.createRange();
-			range.selectNodeContents(cell);
-			const selection = window.getSelection();
-			if (selection) {
-				selection.removeAllRanges();
-				selection.addRange(range);
-			}
-		});
-
-		cell.addEventListener("keydown", (e) => {
-			// Handle number input (1-9)
-			if (e.key >= "1" && e.key <= "9") {
-				e.preventDefault();
-				const value = parseInt(e.key);
-				cell.textContent = value.toString();
-				cell.classList.add("user-input");
-				this.updateCell(index, value);
-				cell.blur();
-			}
-			// Handle deletion (Backspace, Delete, Space)
-			else if (["Backspace", "Delete", " "].includes(e.key)) {
-				e.preventDefault();
-				cell.textContent = "";
-				cell.classList.remove("user-input");
-				this.updateCell(index, null);
-				cell.blur();
-			}
-			// Handle escape
-			else if (e.key === "Escape") {
-				cell.blur();
-			}
-			// Prevent all other input
-			else if (e.key.length === 1) {
-				e.preventDefault();
-			}
-		});
-
-		cell.addEventListener("blur", () => {
-			cell.contentEditable = "false";
+			this.showNumpad(index);
 		});
 	}
 
@@ -346,6 +323,9 @@ export class GameManager {
 	async returnToMenu(): Promise<void> {
 		// Stop the timer
 		this.stopTimer();
+
+		// Hide numpad if visible
+		this.hideNumpad();
 
 		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
@@ -666,5 +646,146 @@ export class GameManager {
 		} else {
 			btnContinue.style.display = "none";
 		}
+	}
+
+	/**
+	 * Setup universal numpad event listeners and functionality
+	 */
+	private setupNumpad(): void {
+		const numpad = document.getElementById("number-picker");
+		const numpadClose = document.getElementById("numpad-close");
+		const numpadButtons = document.querySelectorAll(".numpad-btn");
+
+		if (!numpad || !numpadClose) return;
+
+		// Close numpad when close button is clicked
+		numpadClose.addEventListener("click", () => {
+			this.hideNumpad();
+		});
+
+		// Handle numpad button clicks
+		numpadButtons.forEach((button) => {
+			button.addEventListener("click", (e) => {
+				// Add haptic feedback on mobile devices
+				if ("vibrate" in navigator) {
+					navigator.vibrate(50);
+				}
+
+				const target = e.target as HTMLElement;
+				const value = target.getAttribute("data-value");
+
+				if (this.selectedCellIndex !== null) {
+					if (value === "clear" || value === "delete") {
+						this.updateCell(this.selectedCellIndex, null);
+					} else if (value && value !== "0") {
+						// Only allow numbers 1-9 for Sudoku
+						const numValue = parseInt(value);
+						if (numValue >= 1 && numValue <= 9) {
+							this.updateCell(this.selectedCellIndex, numValue);
+						}
+					}
+				}
+
+				// Keep numpad open for continuous input
+			});
+		});
+
+		// Close numpad when clicking outside
+		document.addEventListener("click", (e) => {
+			const target = e.target as HTMLElement;
+			if (!numpad.contains(target) && !target.closest(".cell")) {
+				this.hideNumpad();
+			}
+		});
+
+		// Handle hardware keyboard input even when numpad is visible
+		document.addEventListener("keydown", (e) => {
+			if (
+				this.selectedCellIndex !== null &&
+				numpad.classList.contains("show")
+			) {
+				if (e.key >= "1" && e.key <= "9") {
+					e.preventDefault();
+					const value = parseInt(e.key);
+					this.updateCell(this.selectedCellIndex, value);
+				} else if (["Backspace", "Delete", " "].includes(e.key)) {
+					e.preventDefault();
+					this.updateCell(this.selectedCellIndex, null);
+				} else if (e.key === "Escape") {
+					e.preventDefault();
+					this.hideNumpad();
+				}
+			}
+		});
+	}
+
+	/**
+	 * Show numpad for the selected cell
+	 */
+	private showNumpad(cellIndex: number): void {
+		this.selectedCellIndex = cellIndex;
+
+		const numpad = document.getElementById("number-picker");
+		if (!numpad) return;
+
+		// Add class to body to trigger layout adjustments
+		document.body.classList.add("numpad-visible");
+
+		// Show numpad with animation
+		numpad.classList.remove("hidden");
+		requestAnimationFrame(() => {
+			numpad.classList.add("show");
+		});
+
+		// Update selected cell visual feedback
+		this.updateSelectedCellHighlight(cellIndex);
+	}
+
+	/**
+	 * Hide numpad
+	 */
+	private hideNumpad(): void {
+		const numpad = document.getElementById("number-picker");
+		if (!numpad) return;
+
+		// Remove numpad visibility
+		numpad.classList.remove("show");
+
+		// Remove layout adjustments
+		document.body.classList.remove("numpad-visible");
+
+		// Hide numpad after animation
+		setTimeout(() => {
+			numpad.classList.add("hidden");
+		}, 300);
+
+		// Clear selected cell
+		this.selectedCellIndex = null;
+		this.clearSelectedCellHighlight();
+	}
+
+	/**
+	 * Update visual highlight for selected cell
+	 */
+	private updateSelectedCellHighlight(cellIndex: number): void {
+		// Remove previous highlights
+		document.querySelectorAll(".cell.selected").forEach((cell) => {
+			cell.classList.remove("selected");
+		});
+
+		// Add highlight to selected cell
+		const cell = document.querySelector(`[data-index="${cellIndex}"]`);
+		if (cell) {
+			cell.classList.add("selected");
+		}
+	}
+
+	/**
+	 * Clear selected cell highlight
+	 */
+	private clearSelectedCellHighlight(): void {
+		document.querySelectorAll(".cell.selected").forEach((cell) => {
+			cell.classList.remove("selected");
+		});
 	}
 }

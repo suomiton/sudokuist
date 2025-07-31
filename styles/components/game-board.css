@@ -114,6 +114,14 @@
 	animation: shake 0.3s ease-in-out;
 }
 
+/* Selected cell for mobile numpad */
+.cell.selected {
+	background: var(--color-primary-light);
+	color: var(--color-surface);
+	outline: 3px solid var(--color-primary);
+	outline-offset: -3px;
+}
+
 /* Bold lines every 3 cells for 3x3 sub-grids */
 .cell:nth-child(3n):not(:nth-child(9n)) {
 	border-right: 2px solid var(--color-text);

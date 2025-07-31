@@ -17,7 +17,7 @@ export async function initializeWasm(): Promise<void> {
 			await wasmModule.default();
 		} else {
 			// In production, load from the base path (respects Vite's base configuration)
-			const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+			const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
 			const wasmModulePath = `${baseUrl}/sudoku_wasm.js`;
 			const wasmBinaryPath = `${baseUrl}/sudoku_wasm_bg.wasm`;
 			wasmModule = await import(/* @vite-ignore */ wasmModulePath);

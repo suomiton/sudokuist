@@ -10,5 +10,6 @@
 @import './components/game-board.css';
 @import './components/timer.css';
 @import './components/share.css';
+@import './components/numpad.css';
 @import './animations.css';
 @import './responsive.css';
