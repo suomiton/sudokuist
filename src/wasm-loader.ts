@@ -16,10 +16,12 @@ export async function initializeWasm(): Promise<void> {
 			wasmModule = await import("./pkg/sudoku_wasm.js");
 			await wasmModule.default();
 		} else {
-			// In production, load from public directory
-			const wasmModulePath = "/sudoku_wasm.js";
+			// In production, load from the base path (respects Vite's base configuration)
+			const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+			const wasmModulePath = `${baseUrl}/sudoku_wasm.js`;
+			const wasmBinaryPath = `${baseUrl}/sudoku_wasm_bg.wasm`;
 			wasmModule = await import(/* @vite-ignore */ wasmModulePath);
-			await wasmModule.default("/sudoku_wasm_bg.wasm");
+			await wasmModule.default(wasmBinaryPath);
 		}
 
 		// Make WASM functions globally available

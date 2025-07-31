@@ -59,24 +59,24 @@ jobs:
       run: |
         echo "🦀 Building WASM with release optimizations..."
         wasm-pack build --target web --out-dir pkg --release
-        cp pkg/sudoku_wasm.js pkg/sudoku_wasm_bg.wasm public/
 
     - name: 🏗️ Build TypeScript and Bundle
       run: |
         echo "📁 Copying WASM files for TypeScript..."
         cp -r pkg src/
+        echo "📁 Copying WASM files to public directory for Vite..."
+        cp pkg/sudoku_wasm.js pkg/sudoku_wasm_bg.wasm public/
         echo "🔨 Building with Vite in production mode..."
         NODE_ENV=production npm run type-check
         NODE_ENV=production npx vite build --mode production --base=/sudokuist/
 
     - name: 📋 Copy additional assets
       run: |
-        echo "📋 Copying styles and public assets..."
+        echo "📋 Copying additional styles..."
         mkdir -p dist/styles
         cp -r styles/* dist/styles/ 2>/dev/null || true
-        # Copy WASM files to dist if not already there
-        cp public/sudoku_wasm.js dist/ 2>/dev/null || true
-        cp public/sudoku_wasm_bg.wasm dist/ 2>/dev/null || true
+        echo "📋 Verifying WASM files are in place..."
+        ls -la dist/sudoku_wasm* || echo "WASM files not found in dist, this might cause loading issues"
 
     - name: 📊 Generate build report
       run: |
