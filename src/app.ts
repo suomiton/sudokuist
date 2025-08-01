@@ -79,12 +79,12 @@ async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 	if (btnSolve) {
 		btnSolve.addEventListener("click", async () => {
 			const confirmed = await modal.confirm(
-				"Show Solution",
-				"Are you sure you want to see the solution? This will complete the puzzle."
+				"Use Hint",
+				"Do you want to reveal one number? This will count as a hint used."
 			);
 
 			if (confirmed) {
-				gameManager.showSolution();
+				gameManager.showHint();
 			}
 		});
 	}

@@ -8,6 +8,7 @@ export interface GameRecord {
 	startTime?: number; // When the timer started (timestamp)
 	elapsedTime?: number; // Total elapsed time in seconds
 	isFinished?: boolean; // Whether the puzzle has been completed
+	hintsUsed?: number; // Number of hints used in this game
 }
 
 export interface CellRecord {

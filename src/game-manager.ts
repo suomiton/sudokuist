@@ -20,6 +20,9 @@ export class GameManager {
 	private startTime: number | null = null;
 	private elapsedTime: number = 0; // in seconds
 
+	// Hint tracking
+	private hintsUsed: number = 0;
+
 	// Numpad properties
 	private selectedCellIndex: number | null = null;
 
@@ -39,12 +42,14 @@ export class GameManager {
 		this.currentGameId = generateUUID();
 		this.startTime = Date.now();
 		this.elapsedTime = 0;
+		this.hintsUsed = 0;
 
 		const gameRecord: GameRecord = {
 			id: this.currentGameId,
 			created: Date.now(),
 			startTime: this.startTime,
 			elapsedTime: 0,
+			hintsUsed: 0,
 		};
 
 		await this.db.saveGame(gameRecord);
@@ -91,6 +96,7 @@ export class GameManager {
 		// Restore timer state
 		this.startTime = lastGame.startTime || Date.now();
 		this.elapsedTime = lastGame.elapsedTime || 0;
+		this.hintsUsed = lastGame.hintsUsed || 0;
 
 		await this.loadGameState();
 
@@ -203,11 +209,18 @@ export class GameManager {
 			// Mark game as finished in database
 			await this.markGameAsFinished();
 
-			// Show completion modal with time
+			// Show completion modal with time and hints used
 			const timeText = this.formatTime(this.elapsedTime);
+			const hintsText =
+				this.hintsUsed === 0
+					? "without using any hints"
+					: this.hintsUsed === 1
+					? "using 1 hint"
+					: `using ${this.hintsUsed} hints`;
+
 			modal.show({
 				title: "🎉 Congratulations!",
-				message: `Puzzle completed in <strong>${timeText}</strong>!<br><br>Well done! You've successfully solved the Sudoku puzzle.`,
+				message: `Puzzle completed in <strong>${timeText}</strong> ${hintsText}!<br><br>Well done! You've successfully solved the Sudoku puzzle.`,
 				type: "success",
 				showCancel: false,
 				confirmText: "Back to Menu",
@@ -220,26 +233,63 @@ export class GameManager {
 	}
 
 	/**
-	 * Show the solution using WASM solver
+	 * Provide a hint by filling in one empty cell with the correct value
 	 */
-	async showSolution(): Promise<void> {
+	async showHint(): Promise<void> {
 		// Convert board state to format expected by WASM (0 for empty cells)
 		const wasmBoard = this.boardState.map((val) => val ?? 0);
 		const solution = wasm.solve_puzzle(wasmBoard);
 
-		solution.forEach((value: number, index: number) => {
-			this.boardState[index] = value;
-			const cell = document.querySelector(
-				`[data-index="${index}"]`
-			) as HTMLElement;
-			if (cell) {
-				cell.textContent = value.toString();
-				if (!this.givenCells.has(index)) {
-					cell.classList.add("user-input");
-				}
+		// Find all empty cells that can be filled with a hint
+		const emptyCells: number[] = [];
+		for (let i = 0; i < 81; i++) {
+			if (this.boardState[i] === null && !this.givenCells.has(i)) {
+				emptyCells.push(i);
 			}
-		});
-		this.saveBoardState();
+		}
+
+		if (emptyCells.length === 0) {
+			// No empty cells to fill
+			modal.show({
+				title: "No Hints Available",
+				message: "The puzzle is already complete!",
+				type: "info",
+				showCancel: false,
+				confirmText: "OK",
+			});
+			return;
+		}
+
+		// Pick a random empty cell to fill
+		const randomIndex = Math.floor(Math.random() * emptyCells.length);
+		const cellIndex = emptyCells[randomIndex];
+		const hintValue = solution[cellIndex];
+
+		// Update the cell with the hint
+		this.boardState[cellIndex] = hintValue;
+		const cell = document.querySelector(
+			`[data-index="${cellIndex}"]`
+		) as HTMLElement;
+		if (cell) {
+			cell.textContent = hintValue.toString();
+			cell.classList.add("user-input", "hint-cell");
+		}
+
+		// Increment hints used counter
+		this.hintsUsed++;
+
+		// Save the updated cell and game state
+		if (this.currentGameId) {
+			const cellRecord: CellRecord = {
+				gameId: this.currentGameId,
+				cellIndex,
+				value: hintValue,
+				isGiven: false,
+			};
+			await this.db.saveCell(cellRecord);
+			await this.saveHintCount();
+		}
+
 		await this.validateAndUpdateUI();
 	}
 
@@ -354,6 +404,7 @@ export class GameManager {
 
 		this.currentGameId = null;
 		this.currentSeed = null;
+		this.hintsUsed = 0;
 
 		// Update continue button state
 		await this.updateContinueButtonState();
@@ -370,6 +421,7 @@ export class GameManager {
 		// Initialize timer for shared puzzle (non-persistent)
 		this.startTime = Date.now();
 		this.elapsedTime = 0;
+		this.hintsUsed = 0;
 
 		// Generate puzzle using seed - this will always produce the same puzzle
 		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
@@ -493,12 +545,14 @@ export class GameManager {
 		this.currentGameId = generateUUID();
 		this.startTime = Date.now();
 		this.elapsedTime = 0;
+		this.hintsUsed = 0;
 
 		const gameRecord: GameRecord = {
 			id: this.currentGameId,
 			created: Date.now(),
 			startTime: this.startTime,
 			elapsedTime: 0,
+			hintsUsed: 0,
 		};
 
 		await this.db.saveGame(gameRecord);
@@ -588,6 +642,27 @@ export class GameManager {
 	}
 
 	/**
+	 * Save hint count to database
+	 */
+	private async saveHintCount(): Promise<void> {
+		if (!this.currentGameId) return;
+
+		const lastGame = await this.db.getLastGame();
+		if (!lastGame || lastGame.id !== this.currentGameId) return;
+
+		const updatedGame: GameRecord = {
+			...lastGame,
+			hintsUsed: this.hintsUsed,
+		};
+
+		try {
+			await this.db.updateGame(updatedGame);
+		} catch (error) {
+			console.warn("Failed to save hint count:", error);
+		}
+	}
+
+	/**
 	 * Save timer state to database
 	 */
 	private async saveTimerState(): Promise<void> {
@@ -601,6 +676,7 @@ export class GameManager {
 			...lastGame,
 			startTime: this.startTime,
 			elapsedTime: this.elapsedTime,
+			hintsUsed: this.hintsUsed,
 		};
 
 		try {
@@ -622,6 +698,7 @@ export class GameManager {
 		const updatedGame: GameRecord = {
 			...lastGame,
 			elapsedTime: this.elapsedTime,
+			hintsUsed: this.hintsUsed,
 			isFinished: true,
 		};
 

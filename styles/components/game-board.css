@@ -113,6 +113,14 @@
 	position: relative;
 }
 
+/* Hint cells (special styling for hints) */
+.cell.hint-cell {
+	background: #e3f2fd;
+	color: #1976d2;
+	border: 2px solid #64b5f6;
+	font-weight: 700;
+}
+
 /* Invalid cells (conflict detection) */
 .cell.invalid {
 	background: var(--color-error-bg);
