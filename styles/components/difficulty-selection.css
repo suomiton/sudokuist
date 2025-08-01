@@ -4,13 +4,14 @@
 	flex-direction: column;
 	gap: var(--gutter-md);
 	margin-top: var(--gutter-lg);
+	margin-bottom: var(--gutter-sm);
 }
 
 .difficulty-option {
 	display: flex;
 	align-items: center;
 	gap: var(--gutter-lg);
-	padding: var(--gutter-lg);
+	padding: var(--gutter-md) var(--gutter-lg);
 	border: 2px solid var(--color-border);
 	border-radius: var(--gutter-md);
 	cursor: pointer;
@@ -34,11 +35,12 @@
 .difficulty-stars {
 	display: flex;
 	gap: calc(var(--gutter-base) * 0.25);
-	min-width: 120px;
+	min-width: 100px;
+	flex-shrink: 0;
 }
 
 .difficulty-stars .star {
-	font-size: 1.5rem;
+	font-size: 1.3rem;
 	transition: all var(--transition-fast);
 }
 
@@ -53,16 +55,20 @@
 
 .difficulty-info {
 	flex: 1;
+	min-width: 0;
+	/* Allow text to wrap */
 }
 
 .difficulty-name {
-	font-size: 1.1rem;
+	font-size: 1.05rem;
 	font-weight: 600;
 	color: var(--color-text);
-	margin-bottom: calc(var(--gutter-base) * 0.25);
+	margin-bottom: calc(var(--gutter-base) * 0.125);
+	line-height: 1.2;
 }
 
 .difficulty-description {
-	font-size: 0.9rem;
+	font-size: 0.85rem;
 	color: var(--color-text-light);
+	line-height: 1.3;
 }

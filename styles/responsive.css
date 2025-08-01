@@ -36,8 +36,9 @@
 
 	/* Modal responsive styles */
 	.modal-container {
-		margin: var(--gutter-lg);
-		max-width: calc(100vw - var(--gutter-2xl));
+		margin: var(--gutter-md);
+		max-width: calc(100vw - var(--gutter-xl));
+		max-height: 90vh;
 	}
 
 	.modal-footer {
@@ -50,25 +51,29 @@
 	}
 
 	/* Difficulty selection responsive styles */
-	.difficulty-option {
-		flex-direction: column;
-		text-align: center;
+	.difficulty-selection {
 		gap: var(--gutter-sm);
+		margin-top: var(--gutter-md);
+		margin-bottom: 0;
+	}
+
+	.difficulty-option {
+		gap: var(--gutter-md);
 		padding: var(--gutter-md);
 	}
 
 	.difficulty-stars {
-		justify-content: center;
-		min-width: auto;
+		min-width: 80px;
+		gap: calc(var(--gutter-base) * 0.125);
 	}
 
 	.difficulty-stars .star {
-		font-size: 1.25rem;
+		font-size: 1.1rem;
 	}
 
 	.difficulty-name {
-		font-size: 1rem;
-		margin-bottom: calc(var(--gutter-base) * 0.125);
+		font-size: 0.95rem;
+		margin-bottom: calc(var(--gutter-base) * 0.0625);
 	}
 
 	.difficulty-description {
