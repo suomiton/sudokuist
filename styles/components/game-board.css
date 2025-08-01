@@ -1,7 +1,7 @@
 /* Game Board and Container Styles */
 #sudoku-container {
 	background: var(--color-surface);
-	padding: var(--gutter-2xl);
+	padding: var(--gutter-lg) var(--gutter-2xl);
 	border-radius: var(--gutter-lg);
 	box-shadow: var(--shadow-card);
 	max-width: 600px;
@@ -10,9 +10,9 @@
 
 #sudoku-container .game-header {
 	display: flex;
-	justify-content: space-between;
+	justify-content: center;
 	align-items: center;
-	margin-bottom: var(--gutter-xl);
+	margin-bottom: var(--gutter-lg);
 	padding-bottom: var(--gutter-lg);
 	border-bottom: 2px solid #f0f0f0;
 }
@@ -26,6 +26,9 @@
 #sudoku-container .header-controls {
 	display: flex;
 	gap: var(--gutter-sm);
+	justify-content: space-between;
+	align-items: center;
+	flex-flow: row nowrap;
 }
 
 #sudoku-container .header-controls .control-btn {
@@ -91,20 +94,23 @@
 
 /* Pre-filled cells (given/clues) */
 .cell.given {
-	background: #f8f9fa;
-	color: var(--color-text);
+	background: #f4f4f4;
+	color: #6c757d;
 	font-weight: 700;
-	cursor: default;
-}
+	cursor: pointer;
+	position: relative;
 
-.cell.given:hover {
-	background: #f8f9fa;
+	&:focus {
+		outline: none;
+	}
 }
 
 /* User-filled cells */
 .cell.user-input {
 	color: var(--color-primary);
 	background: var(--color-surface);
+	font-weight: 600;
+	position: relative;
 }
 
 /* Invalid cells (conflict detection) */
@@ -114,12 +120,19 @@
 	animation: shake 0.3s ease-in-out;
 }
 
-/* Selected cell for mobile numpad */
+/* Selected cell for numpad */
 .cell.selected {
 	background: var(--color-primary-light);
 	color: var(--color-surface);
 	outline: 3px solid var(--color-primary);
 	outline-offset: -3px;
+	font-weight: 700;
+}
+
+/* Override indicators when cell is selected */
+.cell.selected::before,
+.cell.selected::after {
+	display: none;
 }
 
 /* Bold lines every 3 cells for 3x3 sub-grids */

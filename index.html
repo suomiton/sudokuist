@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Sudokuist - Web Sudoku Game</title>
-	<!-- CSS Reset and Styles -->
+
 	<link rel="stylesheet" href="/styles/reset.css">
 	<link rel="stylesheet" href="/styles/main.css">
 </head>
@@ -22,20 +22,22 @@
 
 	<!-- Game Container: Sudoku board and controls (initially hidden) -->
 	<div id="sudoku-container" class="hidden">
+		<button id="btn-back">← Back to Menu</button>
+
 		<div class="game-header">
-			<button id="btn-back" class="control-btn">← Back to Menu</button>
 			<h2>Sudoku Game</h2>
-			<div class="header-controls">
-				<button id="btn-solve" class="control-btn">Show Solution</button>
+		</div>
+
+		<div class="header-controls">
+			<div class="timer-container">
+				<span class="timer-label">Time:</span>
+				<span id="timer-display" class="timer-display">00:00:00</span>
 			</div>
+			<button id="btn-solve" class="control-btn">Show Solution</button>
 		</div>
-		<div id="sudoku-board" class="board-grid">
-			<!-- 9x9 grid cells will be dynamically created here -->
-		</div>
-		<div class="timer-container">
-			<span class="timer-label">Time:</span>
-			<span id="timer-display" class="timer-display">00:00:00</span>
-		</div>
+
+		<div id="sudoku-board" class="board-grid"></div>
+
 		<div id="share-container" class="share-container">
 			<div class="share-header">
 				<span class="share-label">Share this puzzle:</span>
@@ -47,7 +49,6 @@
 		</div>
 	</div>
 
-	<!-- Universal Number Picker -->
 	<div id="number-picker" class="number-picker hidden">
 		<div class="numpad-header">
 			<span class="numpad-title">Select Number</span>
@@ -67,7 +68,6 @@
 		</div>
 	</div>
 
-	<!-- TypeScript Bundle -->
 	<script type="module" src="/src/app.ts"></script>
 </body>
 

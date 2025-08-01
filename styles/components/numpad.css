@@ -136,6 +136,11 @@
 	height: 100%;
 }
 
+body.numpad-visible {
+	align-items: flex-start;
+	padding-top: var(--gutter-lg);
+}
+
 /* Desktop layout - horizontal numpad */
 @media (min-width: 769px) {
 	.numpad-grid {
@@ -214,18 +219,6 @@
 		display: none;
 	}
 
-	body.numpad-visible .timer-container {
-		position: fixed;
-		top: var(--gutter-lg);
-		right: var(--gutter-lg);
-		background: var(--color-surface);
-		padding: var(--gutter-sm) var(--gutter-md);
-		border-radius: var(--gutter-md);
-		box-shadow: var(--shadow-sm);
-		z-index: 999;
-		font-size: 0.9rem;
-	}
-
 	body.numpad-visible .share-container {
 		display: none;
 	}
@@ -252,7 +245,7 @@
 /* Very small screens */
 @media (max-width: 480px) {
 	body.numpad-visible #sudoku-container {
-		transform: scale(0.65);
+		transform: scale(0.85);
 		padding: var(--gutter-sm);
 	}
 
@@ -280,13 +273,6 @@
 	body.numpad-visible #sudoku-container {
 		transform: scale(0.55);
 		margin-top: var(--gutter-sm);
-	}
-
-	body.numpad-visible .timer-container {
-		top: var(--gutter-sm);
-		right: var(--gutter-sm);
-		font-size: 0.8rem;
-		padding: var(--gutter-sm);
 	}
 
 	.number-picker {

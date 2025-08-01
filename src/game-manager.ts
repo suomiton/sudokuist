@@ -295,11 +295,15 @@ export class GameManager {
 	 * Setup interaction handlers for a cell
 	 */
 	private setupCellInteraction(cell: HTMLElement, index: number): void {
-		if (this.givenCells.has(index)) return; // Given cells are not editable
-
-		// Universal interaction - show numpad for all devices
+		// All cells should have click handlers for consistency
 		cell.addEventListener("click", () => {
-			this.showNumpad(index);
+			if (this.givenCells.has(index)) {
+				// If clicking on a given cell, hide the numpad
+				this.hideNumpad();
+			} else {
+				// If clicking on an editable cell, show numpad
+				this.showNumpad(index);
+			}
 		});
 	}
 
