@@ -146,13 +146,30 @@ fn calculate_puzzle_complexity(board: &[Option<u8>]) -> f64 {
 fn classify_difficulty_level(
     hardest_technique: &SolvingTechnique,
     technique_count: usize,
-    _branching_factor: f64,
+    branching_factor: f64,
 ) -> DifficultyLevel {
-    match hardest_technique {
-        SolvingTechnique::NakedSingle | SolvingTechnique::HiddenSingle => DifficultyLevel::Easy,
+    // Use branching factor as a secondary classifier
+    let bf_difficulty = match branching_factor {
+        bf if bf <= 1.7 => DifficultyLevel::VeryEasy,
+        bf if bf <= 2.0 => DifficultyLevel::Easy,
+        bf if bf <= 3.2 => DifficultyLevel::Medium,
+        bf if bf <= 5.0 => DifficultyLevel::Hard,
+        _ => DifficultyLevel::Expert,
+    };
+
+    // Primary classification by technique
+    let technique_difficulty = match hardest_technique {
+        SolvingTechnique::NakedSingle => {
+            if branching_factor <= 1.7 {
+                DifficultyLevel::VeryEasy
+            } else {
+                DifficultyLevel::Easy
+            }
+        }
+        SolvingTechnique::HiddenSingle => DifficultyLevel::Easy,
 
         SolvingTechnique::NakedPair | SolvingTechnique::HiddenPair => {
-            if technique_count <= 3 {
+            if technique_count <= 3 && branching_factor <= 2.5 {
                 DifficultyLevel::Medium
             } else {
                 DifficultyLevel::Hard
@@ -160,11 +177,15 @@ fn classify_difficulty_level(
         }
 
         SolvingTechnique::BoxLineReduction | SolvingTechnique::PointingPairs => {
-            DifficultyLevel::Medium
+            if branching_factor <= 3.0 {
+                DifficultyLevel::Medium
+            } else {
+                DifficultyLevel::Hard
+            }
         }
 
         SolvingTechnique::XWing | SolvingTechnique::PointingTriples => {
-            if technique_count <= 5 {
+            if technique_count <= 5 && branching_factor <= 4.5 {
                 DifficultyLevel::Hard
             } else {
                 DifficultyLevel::Expert
@@ -176,7 +197,31 @@ fn classify_difficulty_level(
         | SolvingTechnique::XYWing
         | SolvingTechnique::XYChain
         | SolvingTechnique::ForcingChain
-        | SolvingTechnique::TrialAndError => DifficultyLevel::Expert,
+        | SolvingTechnique::TrialAndError => {
+            if branching_factor <= 5.0 {
+                DifficultyLevel::Hard
+            } else {
+                DifficultyLevel::Expert
+            }
+        }
+    };
+
+    // Return the higher difficulty between technique and branching factor
+    // This ensures puzzles with high branching factor get proper classification
+    match (technique_difficulty, bf_difficulty) {
+        (DifficultyLevel::VeryEasy, _) => DifficultyLevel::VeryEasy,
+        (DifficultyLevel::Easy, DifficultyLevel::VeryEasy) => DifficultyLevel::VeryEasy,
+        (DifficultyLevel::Easy, bf) => bf,
+        (DifficultyLevel::Medium, DifficultyLevel::VeryEasy | DifficultyLevel::Easy) => {
+            DifficultyLevel::Medium
+        }
+        (DifficultyLevel::Medium, bf) => bf,
+        (
+            DifficultyLevel::Hard,
+            DifficultyLevel::VeryEasy | DifficultyLevel::Easy | DifficultyLevel::Medium,
+        ) => DifficultyLevel::Hard,
+        (DifficultyLevel::Hard, bf) => bf,
+        (DifficultyLevel::Expert, _) => DifficultyLevel::Expert,
     }
 }
 
@@ -187,13 +232,16 @@ mod tests {
     #[test]
     fn test_difficulty_classification() {
         // Test basic technique classification
-        let easy_level = classify_difficulty_level(&SolvingTechnique::NakedSingle, 1, 1.5);
+        let very_easy_level = classify_difficulty_level(&SolvingTechnique::NakedSingle, 1, 1.5);
+        assert_eq!(very_easy_level, DifficultyLevel::VeryEasy);
+
+        let easy_level = classify_difficulty_level(&SolvingTechnique::NakedSingle, 1, 1.9);
         assert_eq!(easy_level, DifficultyLevel::Easy);
 
         let hard_level = classify_difficulty_level(&SolvingTechnique::XWing, 4, 3.0);
         assert_eq!(hard_level, DifficultyLevel::Hard);
 
-        let expert_level = classify_difficulty_level(&SolvingTechnique::Swordfish, 6, 4.0);
+        let expert_level = classify_difficulty_level(&SolvingTechnique::Swordfish, 6, 5.5);
         assert_eq!(expert_level, DifficultyLevel::Expert);
     }
 

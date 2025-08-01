@@ -461,7 +461,8 @@ mod difficulty_tests {
         // Check that analysis has reasonable values
         assert!(matches!(
             analysis.level,
-            DifficultyLevel::Easy
+            DifficultyLevel::VeryEasy
+                | DifficultyLevel::Easy
                 | DifficultyLevel::Medium
                 | DifficultyLevel::Hard
                 | DifficultyLevel::Expert
@@ -555,7 +556,8 @@ mod integration_tests {
         // Any difficulty level is fine for this test
         assert!(matches!(
             analysis.level,
-            DifficultyLevel::Easy
+            DifficultyLevel::VeryEasy
+                | DifficultyLevel::Easy
                 | DifficultyLevel::Medium
                 | DifficultyLevel::Hard
                 | DifficultyLevel::Expert

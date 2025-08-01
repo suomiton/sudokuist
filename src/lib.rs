@@ -30,7 +30,10 @@ pub mod wasm_exports;
 
 // Re-export main functionality for easier access
 pub use difficulty::analyze_difficulty;
-pub use generator::{generate_puzzle, GeneratorConfig, PuzzleGenerator};
+pub use generator::{
+    generate_puzzle, generate_puzzle_enhanced, generate_puzzle_with_branching_factor,
+    GeneratorConfig, PuzzleGenerator,
+};
 pub use solver::HumanStyleSolver;
 pub use types::{DifficultyAnalysis, DifficultyLevel, SolvingTechnique, BOARD_SIZE, GRID_SIZE};
 pub use validator::{has_unique_solution, solve_board, validate_board};

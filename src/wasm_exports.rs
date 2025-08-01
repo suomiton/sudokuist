@@ -128,6 +128,12 @@ pub fn generate_custom_puzzle(
         min_clues: min_clues.max(17), // Ensure minimum is at least 17
         max_clues: max_clues.min(50), // Ensure maximum is reasonable
         prefer_symmetry,
+
+        // Use default branching factor settings for custom generation
+        min_branching_factor: 1.0,
+        max_branching_factor: 4.0,
+        target_branching_factor: 2.5,
+        branching_factor_tolerance: 0.5,
     };
 
     let generator = PuzzleGenerator::new(config);
@@ -271,6 +277,7 @@ pub fn analyze_puzzle_difficulty(board: Vec<u8>) -> String {
 
     // Convert to JSON manually for simplicity
     let level_str = match analysis.level {
+        DifficultyLevel::VeryEasy => "VeryEasy",
         DifficultyLevel::Easy => "Easy",
         DifficultyLevel::Medium => "Medium",
         DifficultyLevel::Hard => "Hard",
@@ -690,6 +697,7 @@ pub fn createGameWithAnalysis(difficulty: u8) -> JsValue {
             // Create analysis object manually for compatibility
             let analysis_obj = js_sys::Object::new();
             let level_str = match analysis.level {
+                DifficultyLevel::VeryEasy => "VeryEasy",
                 DifficultyLevel::Easy => "Easy",
                 DifficultyLevel::Medium => "Medium",
                 DifficultyLevel::Hard => "Hard",

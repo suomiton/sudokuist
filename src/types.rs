@@ -25,6 +25,8 @@ pub struct ValidationResult {
 /// techniques required to solve it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DifficultyLevel {
+    /// Requires minimal techniques (mostly naked singles, very straightforward)
+    VeryEasy,
     /// Requires only basic techniques (naked/hidden singles)
     Easy,
     /// Requires intermediate techniques (pairs, box-line reduction)
