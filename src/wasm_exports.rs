@@ -4,6 +4,9 @@
 //! to interact with the Sudoku solver and generator.
 
 use js_sys::Array;
+use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
+use rand::SeedableRng;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
@@ -496,6 +499,112 @@ pub fn createGame(difficulty: u8) -> JsValue {
     }
 }
 
+/// Generate a complete solved Sudoku board using a specific seed for reproducible results
+fn generate_solved_board_with_seed(seed: u64) -> Vec<u8> {
+    let mut board = vec![None; BOARD_SIZE];
+    let mut rng = SmallRng::seed_from_u64(seed);
+
+    fill_board_seeded(&mut board, &mut rng);
+
+    // Convert to Vec<u8> (should all be Some values)
+    board.into_iter().map(|cell| cell.unwrap_or(1)).collect()
+}
+
+/// Fill board using backtracking with seeded randomization
+fn fill_board_seeded(board: &mut [Option<u8>], rng: &mut SmallRng) -> bool {
+    // Find first empty cell
+    if let Some(empty_idx) = board.iter().position(|&cell| cell.is_none()) {
+        let row = empty_idx / 9;
+        let col = empty_idx % 9;
+
+        // Create shuffled list of numbers 1-9
+        let mut numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        numbers.shuffle(rng);
+
+        for num in numbers {
+            if is_valid_placement_seeded(board, row, col, num) {
+                board[empty_idx] = Some(num);
+                if fill_board_seeded(board, rng) {
+                    return true;
+                }
+                board[empty_idx] = None;
+            }
+        }
+        false
+    } else {
+        true // Board is complete
+    }
+}
+
+/// Check if placing a number at the given position is valid
+fn is_valid_placement_seeded(board: &[Option<u8>], row: usize, col: usize, num: u8) -> bool {
+    // Check row
+    for c in 0..9 {
+        if board[row * 9 + c] == Some(num) {
+            return false;
+        }
+    }
+
+    // Check column
+    for r in 0..9 {
+        if board[r * 9 + col] == Some(num) {
+            return false;
+        }
+    }
+
+    // Check 3x3 box
+    let box_row = (row / 3) * 3;
+    let box_col = (col / 3) * 3;
+    for r in box_row..box_row + 3 {
+        for c in box_col..box_col + 3 {
+            if board[r * 9 + c] == Some(num) {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
+/// Create a puzzle from solved board with seeded randomization
+fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Vec<Option<u8>> {
+    let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
+    let mut rng = SmallRng::seed_from_u64(seed.wrapping_add(difficulty as u64));
+
+    // Determine number of cells to remove based on difficulty
+    let cells_to_remove = match difficulty {
+        1 => 30, // Easy - leave 51 clues
+        2 => 35, // Medium - leave 46 clues
+        3 => 45, // Hard - leave 36 clues
+        4 => 50, // Expert - leave 31 clues
+        _ => 40, // Default
+    };
+
+    let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
+    indices.shuffle(&mut rng);
+
+    let mut removed = 0;
+    for &index in &indices {
+        if removed >= cells_to_remove {
+            break;
+        }
+
+        // Try removing this cell
+        let original = board[index];
+        board[index] = None;
+
+        // Check if puzzle still has unique solution
+        if has_unique_solution(&board) {
+            removed += 1;
+        } else {
+            // Restore cell if removing it makes puzzle unsolvable or non-unique
+            board[index] = original;
+        }
+    }
+
+    board
+}
+
 /// Create a new Sudoku game with specified difficulty and seed (legacy compatibility)
 ///
 /// # Arguments
@@ -515,44 +624,23 @@ pub fn createGameWithSeed(difficulty: u8, seed: u64) -> JsValue {
         .into(),
     );
 
-    // For now, we'll ignore the seed parameter and use the regular generator
-    // TODO: Implement seeded generation in the new architecture
-    let difficulty_level = match difficulty {
-        1 => DifficultyLevel::Easy,
-        2 => DifficultyLevel::Easy, // "Very Easy" -> Easy (more clues)
-        3 => DifficultyLevel::Medium,
-        4 => DifficultyLevel::Hard,
-        5 => DifficultyLevel::Expert, // "Very Hard" -> Expert
-        _ => DifficultyLevel::Medium,
-    };
+    // Now actually use the seed for deterministic generation
+    let solved_board = generate_solved_board_with_seed(seed);
+    let puzzle = create_puzzle_with_seed(&solved_board, difficulty, seed);
 
-    let generator = PuzzleGenerator::with_difficulty(difficulty_level);
-
-    match generator.generate() {
-        Some(puzzle) => {
-            // Convert to JavaScript array of numbers/undefined
-            let js_array = Array::new();
-            for cell in puzzle {
-                match cell {
-                    Some(num) => {
-                        js_array.push(&JsValue::from(num));
-                    }
-                    None => {
-                        js_array.push(&JsValue::undefined());
-                    }
-                }
+    // Convert to JavaScript array of numbers/undefined
+    let js_array = Array::new();
+    for cell in puzzle {
+        match cell {
+            Some(num) => {
+                js_array.push(&JsValue::from(num));
             }
-            js_array.into()
-        }
-        None => {
-            console::log_1(&"Failed to generate seeded puzzle, returning empty array".into());
-            let js_array = Array::new();
-            for _ in 0..BOARD_SIZE {
+            None => {
                 js_array.push(&JsValue::undefined());
             }
-            js_array.into()
         }
     }
+    js_array.into()
 }
 
 /// Create a new Sudoku game with detailed difficulty analysis (legacy compatibility)
