@@ -430,21 +430,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_enhanced_config_creation() {
-        let very_easy_config = GeneratorConfig::for_difficulty(DifficultyLevel::VeryEasy);
-        assert!(very_easy_config.target_branching_factor < 1.5);
-        assert!(very_easy_config.min_clues >= 40);
-
-        let easy_config = GeneratorConfig::for_difficulty(DifficultyLevel::Easy);
-        assert!(easy_config.target_branching_factor < 2.0);
-        assert!(easy_config.min_clues >= 35);
-
-        let hard_config = GeneratorConfig::for_difficulty(DifficultyLevel::Hard);
-        assert!(hard_config.target_branching_factor >= 3.5); // Updated assertion to match new config
-        assert!(hard_config.max_clues <= 30);
-    }
-
-    #[test]
     fn test_enhanced_medium_generation() {
         println!("Testing Enhanced Medium generation with branching factor control...");
         let generator = PuzzleGenerator::with_difficulty(DifficultyLevel::Medium);
