@@ -7,7 +7,7 @@ import type { GameRecord, CellRecord } from "./types.js";
 export class DatabaseManager {
 	private db: IDBDatabase | null = null;
 	private readonly dbName = "sudoku";
-	private readonly version = 4; // Incremented to add hintsUsed field
+	private readonly version = 6; // Incremented to add seed and difficulty fields
 
 	/**
 	 * Initialize IndexedDB with required object stores

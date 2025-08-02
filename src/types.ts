@@ -9,6 +9,8 @@ export interface GameRecord {
 	elapsedTime?: number; // Total elapsed time in seconds
 	isFinished?: boolean; // Whether the puzzle has been completed
 	hintsUsed?: number; // Number of hints used in this game
+	seed?: number; // Seed used to generate this puzzle
+	difficulty?: number; // Difficulty level of this puzzle
 }
 
 export interface CellRecord {
@@ -16,6 +18,7 @@ export interface CellRecord {
 	cellIndex: number;
 	value: number | null;
 	isGiven: boolean;
+	notes?: number[]; // Array of note numbers (1-9)
 }
 
 export interface ValidationResult {

@@ -14,6 +14,27 @@ A minimal web-based Sudoku application built with Rust WASM backend and TypeScri
 - **IndexedDB Persistence**: Save and continue games across browser sessions
 - **Clean UI**: CSS Grid-based responsive design
 - **Game State Management**: URL-based game routing with UUID tracking
+- **Notes System**: Add multiple possible numbers to cells as visual hints
+- **Smart Input**: Keyboard shortcuts and touch-friendly controls
+
+## How to Play
+
+### Basic Controls
+
+- **Click a cell** to select it and open the number picker
+- **Enter numbers 1-9** to fill cells
+- **Clear button** or **Delete/Backspace** to empty cells
+- **Hint button** to get assistance with one random cell
+
+### Notes Feature
+
+The notes system allows you to mark possible numbers in each cell:
+
+- **Desktop**: Hold **Shift** + click a number to toggle it as a note
+- **Mobile/Touch**: **Double-tap** a number to toggle it as a note
+- **Keyboard**: **Shift** + number key (1-9) to toggle notes
+
+Notes are displayed as small numbers in the top-left corner of cells. You can have multiple notes per cell, and they'll automatically clear when you enter a definitive value. Notes are saved with your game progress and persist across sessions.
 
 ## Project Structure
 
@@ -115,8 +136,8 @@ npm run type-check
 
 ### Persistence Schema
 
-- **games** store: `{ id: string, created: number }`
-- **cells** store: `{ gameId: string, cellIndex: number, value: number|null, isGiven: boolean }`
+- **games** store: `{ id: string, created: number, startTime?: number, elapsedTime?: number, hintsUsed?: number, isFinished?: boolean }`
+- **cells** store: `{ gameId: string, cellIndex: number, value: number|null, isGiven: boolean, notes?: number[] }`
 
 ## Game Flow
 
