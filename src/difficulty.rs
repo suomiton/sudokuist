@@ -55,50 +55,69 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
         45..=81 => SolvingTechnique::NakedSingle,
         35..=44 => SolvingTechnique::HiddenSingle,
 
-        // Medium range: 30-35 clues
-        32..=34 => {
-            if complexity > 2.5 {
-                SolvingTechnique::BoxLineReduction
+        // Medium range: 30-35 clues - more forgiving medium classification
+        33..=34 => SolvingTechnique::HiddenPair,
+        32 => {
+            if complexity > 2.8 {
+                SolvingTechnique::NakedPair
             } else {
                 SolvingTechnique::HiddenPair
             }
         }
-        30..=31 => SolvingTechnique::BoxLineReduction,
+        30..=31 => SolvingTechnique::NakedPair,
 
-        // Hard range: 25-30 clues - should require XWing to Swordfish
-        28..=29 => {
-            if complexity > 3.0 {
-                SolvingTechnique::XWing
+        // Medium-Hard range: 27-29 clues - BoxLineReduction techniques
+        29 => {
+            if complexity > 2.5 {
+                SolvingTechnique::PointingPairs
             } else {
                 SolvingTechnique::BoxLineReduction
             }
         }
-        26..=27 => SolvingTechnique::XWing,
+        27..=28 => SolvingTechnique::BoxLineReduction,
+
+        // Hard range: 25-26 clues - should require XWing techniques
+        26 => {
+            if complexity > 3.2 {
+                SolvingTechnique::XWing
+            } else {
+                SolvingTechnique::PointingPairs
+            }
+        }
         25 => {
             if complexity > 3.5 {
+                SolvingTechnique::XWing
+            } else {
+                SolvingTechnique::PointingPairs
+            }
+        }
+
+        // Hard range: 22-24 clues - Swordfish and advanced techniques
+        23..=24 => {
+            if complexity > 3.8 {
                 SolvingTechnique::Swordfish
             } else {
                 SolvingTechnique::XWing
             }
         }
+        22 => SolvingTechnique::Swordfish,
 
-        // Expert range: 17-24 clues - should require XYWing and above
-        22..=24 => {
-            if complexity > 4.0 {
+        // Expert range: 17-21 clues - should require XYWing and above
+        20..=21 => {
+            if complexity > 4.2 {
                 SolvingTechnique::XYWing
             } else {
                 SolvingTechnique::Swordfish
             }
         }
-        20..=21 => SolvingTechnique::XYWing,
-        18..=19 => {
+        18..=19 => SolvingTechnique::XYWing,
+        17 => {
             if complexity > 4.5 {
                 SolvingTechnique::XYChain
             } else {
                 SolvingTechnique::XYWing
             }
         }
-        17 => SolvingTechnique::XYChain,
 
         _ => SolvingTechnique::ForcingChain,
     }
@@ -151,9 +170,9 @@ fn classify_difficulty_level(
     // Use branching factor as a secondary classifier
     let bf_difficulty = match branching_factor {
         bf if bf <= 1.7 => DifficultyLevel::VeryEasy,
-        bf if bf <= 2.0 => DifficultyLevel::Easy,
-        bf if bf <= 3.2 => DifficultyLevel::Medium,
-        bf if bf <= 5.0 => DifficultyLevel::Hard,
+        bf if bf <= 2.2 => DifficultyLevel::Easy,
+        bf if bf <= 3.8 => DifficultyLevel::Medium,
+        bf if bf <= 6.0 => DifficultyLevel::Hard,
         _ => DifficultyLevel::Expert,
     };
 
@@ -169,7 +188,7 @@ fn classify_difficulty_level(
         SolvingTechnique::HiddenSingle => DifficultyLevel::Easy,
 
         SolvingTechnique::NakedPair | SolvingTechnique::HiddenPair => {
-            if technique_count <= 3 && branching_factor <= 2.5 {
+            if technique_count <= 5 && branching_factor <= 3.5 {
                 DifficultyLevel::Medium
             } else {
                 DifficultyLevel::Hard
@@ -177,7 +196,7 @@ fn classify_difficulty_level(
         }
 
         SolvingTechnique::BoxLineReduction | SolvingTechnique::PointingPairs => {
-            if branching_factor <= 3.0 {
+            if branching_factor <= 4.2 {
                 DifficultyLevel::Medium
             } else {
                 DifficultyLevel::Hard
@@ -185,7 +204,7 @@ fn classify_difficulty_level(
         }
 
         SolvingTechnique::XWing | SolvingTechnique::PointingTriples => {
-            if technique_count <= 5 && branching_factor <= 4.5 {
+            if technique_count <= 7 && branching_factor <= 5.5 {
                 DifficultyLevel::Hard
             } else {
                 DifficultyLevel::Expert
@@ -198,7 +217,7 @@ fn classify_difficulty_level(
         | SolvingTechnique::XYChain
         | SolvingTechnique::ForcingChain
         | SolvingTechnique::TrialAndError => {
-            if branching_factor <= 5.0 {
+            if branching_factor <= 7.0 {
                 DifficultyLevel::Hard
             } else {
                 DifficultyLevel::Expert
@@ -235,13 +254,14 @@ mod tests {
         let very_easy_level = classify_difficulty_level(&SolvingTechnique::NakedSingle, 1, 1.5);
         assert_eq!(very_easy_level, DifficultyLevel::VeryEasy);
 
-        let easy_level = classify_difficulty_level(&SolvingTechnique::NakedSingle, 1, 1.9);
+        let easy_level = classify_difficulty_level(&SolvingTechnique::NakedSingle, 1, 2.1);
         assert_eq!(easy_level, DifficultyLevel::Easy);
 
         let hard_level = classify_difficulty_level(&SolvingTechnique::XWing, 4, 3.0);
         assert_eq!(hard_level, DifficultyLevel::Hard);
 
-        let expert_level = classify_difficulty_level(&SolvingTechnique::Swordfish, 6, 5.5);
+        // Expert level with higher branching factor
+        let expert_level = classify_difficulty_level(&SolvingTechnique::Swordfish, 6, 7.5);
         assert_eq!(expert_level, DifficultyLevel::Expert);
     }
 
@@ -250,7 +270,7 @@ mod tests {
         // Create a test puzzle with specific clue count
         let mut board = vec![None; 81];
 
-        // Fill with 26 clues (should be Hard level)
+        // Fill with 26 clues (should now be PointingPairs which is Medium-Hard)
         for i in 0..26 {
             board[i] = Some(1);
         }
@@ -258,7 +278,24 @@ mod tests {
         let technique = analyze_difficulty_heuristic(&board);
         println!("26 clues -> {:?}", technique);
 
+        // Should be in Medium-Hard range (PointingPairs to XWing)
+        assert!(
+            technique >= SolvingTechnique::PointingPairs && technique <= SolvingTechnique::XWing
+        );
+
+        // Test with fewer clues for Hard level
+        let mut hard_board = vec![None; 81];
+        for i in 0..23 {
+            hard_board[i] = Some(1);
+        }
+
+        let hard_technique = analyze_difficulty_heuristic(&hard_board);
+        println!("23 clues -> {:?}", hard_technique);
+
         // Should be in Hard range (XWing to Swordfish)
-        assert!(technique >= SolvingTechnique::XWing && technique <= SolvingTechnique::Swordfish);
+        assert!(
+            hard_technique >= SolvingTechnique::XWing
+                && hard_technique <= SolvingTechnique::Swordfish
+        );
     }
 }
