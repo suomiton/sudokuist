@@ -16,11 +16,7 @@
 	}
 
 	#start-screen {
-		padding: var(--gutter-2xl);
-
-		h1 {
-			font-size: 2rem;
-		}
+		padding: 0 var(--gutter-2xl);
 	}
 
 	.share-container {

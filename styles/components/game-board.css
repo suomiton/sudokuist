@@ -8,20 +8,21 @@
 	width: 95%;
 }
 
-#sudoku-container .game-header {
+.game-header {
 	display: flex;
-	justify-content: center;
+	justify-content: flex-start;
 	align-items: center;
-	margin-bottom: var(--gutter-lg);
-	padding-bottom: var(--gutter-lg);
+	margin-bottom: var(--gutter-md);
+	padding-bottom: var(--gutter-md);
 	border-bottom: 2px solid #f0f0f0;
+
+	h2 {
+		font-size: 1.5rem;
+		color: var(--color-primary);
+		font-weight: 600;
+	}
 }
 
-#sudoku-container .game-header h2 {
-	font-size: 1.5rem;
-	color: var(--color-primary);
-	font-weight: 600;
-}
 
 #sudoku-container .header-controls {
 	display: flex;

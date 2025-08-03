@@ -14,18 +14,26 @@
 	<!-- Start Screen: Initial game selection interface -->
 	<div id="start-screen">
 		<h1>Sudokuist</h1>
+
 		<div class="button-container">
+			<p>Welcome to Sudokuist! A traditional Sudoku game designed for puzzle lovers. Play, relax, and sharpen your
+				mind—directly in your
+				browser! Choose an option to begin:</p>
 			<button id="btn-start" class="game-btn">Start New Game</button>
 			<button id="btn-continue" class="game-btn">Continue Last Game</button>
 		</div>
+
+		<footer>
+			<p>Sudoku implementation and game engine by
+			<div class="developer">Toni Suominen</div>
+			</p>
+		</footer>
 	</div>
 
 	<!-- Game Container: Sudoku board and controls (initially hidden) -->
 	<div id="sudoku-container" class="hidden">
-		<button id="btn-back">← Back to Menu</button>
-
 		<div class="game-header">
-			<h2>Sudoku Game</h2>
+			<button id="btn-back">← Back to Menu</button>
 		</div>
 
 		<div class="header-controls">
@@ -50,10 +58,6 @@
 	</div>
 
 	<div id="number-picker" class="number-picker hidden">
-		<div class="numpad-header">
-			<span class="numpad-title">Select Number</span>
-			<button id="numpad-close" class="numpad-close-btn">×</button>
-		</div>
 		<div class="numpad-grid">
 			<button class="numpad-btn" data-value="1">1</button>
 			<button class="numpad-btn" data-value="2">2</button>

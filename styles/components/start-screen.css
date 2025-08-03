@@ -1,22 +1,26 @@
 /* Start Screen Component */
 #start-screen {
 	text-align: center;
-	background: var(--color-surface);
-	padding: var(--gutter-2xl);
-	border-radius: var(--gutter-lg);
-	box-shadow: var(--shadow-card);
 	max-width: 400px;
 	width: 90%;
 }
 
 #start-screen h1 {
-	font-size: 2.5rem;
-	margin-bottom: var(--gutter-2xl);
-	color: var(--color-primary);
+	font-size: 40px;
+	margin-bottom: 0;
+	color: var(--color-surface);
 	font-weight: 700;
+	text-transform: uppercase;
+	line-height: 24px;
+	text-align: left;
+	margin-left: var(--gutter-2xl);
 }
 
 #start-screen .button-container {
+	background: var(--color-surface);
+	padding: var(--gutter-2xl);
+	border-radius: var(--gutter-lg);
+	box-shadow: var(--shadow-card);
 	display: flex;
 	flex-direction: column;
 	gap: var(--gutter-lg);
@@ -47,4 +51,15 @@
 #start-screen .game-btn:focus {
 	outline: 2px solid var(--color-primary-light);
 	outline-offset: 2px;
+}
+
+footer {
+	padding: var(--gutter-lg);
+	text-align: center;
+	font-size: 0.9rem;
+	color: var(--color-text-secondary);
+
+	.developer {
+		text-decoration: underline;
+	}
 }

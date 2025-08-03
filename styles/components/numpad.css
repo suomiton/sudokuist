@@ -23,15 +23,6 @@
 	transform: translateY(0);
 }
 
-.numpad-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: var(--gutter-lg) var(--gutter-xl);
-	border-bottom: 1px solid var(--color-border);
-	background: var(--color-background);
-}
-
 .numpad-title {
 	font-size: 1.1rem;
 	font-weight: 600;
@@ -211,10 +202,6 @@ body.numpad-visible {
 		border-radius: var(--gutter-xl) var(--gutter-xl) 0 0;
 	}
 
-	.numpad-header {
-		padding: var(--gutter-xl) var(--gutter-2xl);
-	}
-
 	.numpad-title {
 		font-size: 1.2rem;
 	}
@@ -249,7 +236,7 @@ body.numpad-visible {
 
 	/* Zoom down the sudoku container when numpad is visible */
 	body.numpad-visible #sudoku-container {
-		transform: scale(0.75);
+		transform: scale(0.85);
 		transform-origin: top center;
 		transition: transform 0.3s ease-in-out;
 		margin-bottom: var(--gutter-lg);
@@ -311,10 +298,6 @@ body.numpad-visible {
 		padding: var(--gutter-lg);
 	}
 
-	.numpad-header {
-		padding: var(--gutter-md) var(--gutter-lg);
-	}
-
 	.numpad-title {
 		font-size: 1rem;
 	}
@@ -342,9 +325,5 @@ body.numpad-visible {
 		min-height: 35px;
 		font-size: 1rem;
 		padding: var(--gutter-sm);
-	}
-
-	.numpad-header {
-		padding: var(--gutter-sm) var(--gutter-lg);
 	}
 }
