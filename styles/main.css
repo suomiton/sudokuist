@@ -11,5 +11,6 @@
 @import './components/timer.css';
 @import './components/share.css';
 @import './components/numpad.css';
+@import './components/scoreboard.css';
 @import './animations.css';
 @import './responsive.css';

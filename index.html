@@ -21,6 +21,7 @@
 				browser! Choose an option to begin:</p>
 			<button id="btn-start" class="game-btn">Start New Game</button>
 			<button id="btn-continue" class="game-btn">Continue Last Game</button>
+			<button id="btn-scoreboard" class="game-btn">Scoreboard</button>
 		</div>
 
 		<footer>
@@ -54,6 +55,18 @@
 				<input type="text" id="share-link" class="share-link" readonly>
 				<button id="copy-link-btn" class="copy-btn">Copy</button>
 			</div>
+		</div>
+	</div>
+
+	<!-- Scoreboard: Display all previous games (initially hidden) -->
+	<div id="scoreboard-container" class="hidden">
+		<div class="scoreboard-header">
+			<h2>Scoreboard</h2>
+			<button id="btn-back-scoreboard">← Back to Menu</button>
+		</div>
+
+		<div id="scoreboard-content">
+			<!-- Games table will be populated here by JavaScript -->
 		</div>
 	</div>
 

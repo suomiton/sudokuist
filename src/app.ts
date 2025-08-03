@@ -28,8 +28,20 @@ async function initializeApp(): Promise<void> {
 		// Initialize game manager
 		const gameManager = new GameManager(db);
 
+		// Make gameManager available globally for onclick handlers
+		(window as any).gameManager = gameManager;
+
+		// Debug: Make test function available in development
+		if (import.meta.env.DEV) {
+			(window as any).createTestGames = () => gameManager.createTestGames();
+		}
+
 		// Setup event handlers
 		await setupEventHandlers(gameManager);
+
+		// Update button states on initialization
+		await gameManager.updateContinueButtonState();
+		await gameManager.updateScoreboardButtonState();
 
 		// Handle URL routing
 		await handleUrlRouting(gameManager, db);
@@ -49,7 +61,9 @@ async function initializeApp(): Promise<void> {
 async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 	const btnStart = document.getElementById("btn-start");
 	const btnContinue = document.getElementById("btn-continue");
+	const btnScoreboard = document.getElementById("btn-scoreboard");
 	const btnBack = document.getElementById("btn-back");
+	const btnBackScoreboard = document.getElementById("btn-back-scoreboard");
 	const btnSolve = document.getElementById("btn-solve");
 	const copyLinkBtn = document.getElementById("copy-link-btn");
 
@@ -69,8 +83,22 @@ async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 		btnContinue.addEventListener("click", () => gameManager.continueLastGame());
 	}
 
+	if (btnScoreboard) {
+		// Check if there are games to display in scoreboard
+		await gameManager.updateScoreboardButtonState();
+
+		btnScoreboard.addEventListener("click", () => gameManager.showScoreboard());
+	}
+
 	if (btnBack) {
 		btnBack.addEventListener(
+			"click",
+			async () => await gameManager.returnToMenu()
+		);
+	}
+
+	if (btnBackScoreboard) {
+		btnBackScoreboard.addEventListener(
 			"click",
 			async () => await gameManager.returnToMenu()
 		);

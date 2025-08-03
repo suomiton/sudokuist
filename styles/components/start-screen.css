@@ -14,6 +14,7 @@
 	line-height: 24px;
 	text-align: left;
 	margin-left: var(--gutter-2xl);
+	text-shadow: var(--shadow-card);
 }
 
 #start-screen .button-container {
@@ -46,6 +47,18 @@
 
 #start-screen .game-btn:active {
 	transform: translateY(0);
+}
+
+#start-screen .game-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: var(--shadow-sm);
+}
+
+#start-screen .game-btn:disabled:hover {
+	transform: none;
+	box-shadow: var(--shadow-sm);
 }
 
 #start-screen .game-btn:focus {

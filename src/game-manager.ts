@@ -20,6 +20,7 @@ export class GameManager {
 	private timerInterval: number | null = null;
 	private startTime: number | null = null;
 	private elapsedTime: number = 0; // in seconds
+	private saveCounter: number = 0; // Counter to save timer state less frequently
 
 	// Hint tracking
 	private hintsUsed: number = 0;
@@ -45,18 +46,21 @@ export class GameManager {
 		this.elapsedTime = 0;
 		this.hintsUsed = 0;
 
+		// Generate a random seed for this puzzle
+		this.currentSeed = Math.floor(Math.random() * 1000000) + Date.now();
+
 		const gameRecord: GameRecord = {
 			id: this.currentGameId,
 			created: Date.now(),
+			lastAccessed: Date.now(),
 			startTime: this.startTime,
 			elapsedTime: 0,
 			hintsUsed: 0,
+			seed: this.currentSeed,
+			difficulty: this.currentDifficulty,
 		};
 
 		await this.db.saveGame(gameRecord);
-
-		// Generate a random seed for this puzzle
-		this.currentSeed = Math.floor(Math.random() * 1000000) + Date.now();
 
 		// Generate board using WASM with seed
 		const gameBoard = wasm.createGameWithSeed(
@@ -101,6 +105,14 @@ export class GameManager {
 		this.startTime = lastGame.startTime || Date.now();
 		this.elapsedTime = lastGame.elapsedTime || 0;
 		this.hintsUsed = lastGame.hintsUsed || 0;
+		this.currentDifficulty = lastGame.difficulty || 1;
+
+		// Update lastAccessed timestamp when continuing
+		const updatedGame: GameRecord = {
+			...lastGame,
+			lastAccessed: Date.now(),
+		};
+		await this.db.updateGame(updatedGame);
 
 		await this.loadGameState();
 
@@ -402,6 +414,11 @@ export class GameManager {
 	 * Return to start screen
 	 */
 	async returnToMenu(): Promise<void> {
+		// Save timer state before stopping and clearing game state
+		if (this.currentGameId) {
+			await this.saveTimerState();
+		}
+
 		// Stop the timer
 		this.stopTimer();
 
@@ -410,9 +427,17 @@ export class GameManager {
 
 		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
+		const scoreboardContainer = document.getElementById("scoreboard-container");
 
-		if (startScreen && sudokuContainer) {
-			sudokuContainer.classList.add("hidden");
+		if (startScreen) {
+			// Hide all other screens
+			if (sudokuContainer) {
+				sudokuContainer.classList.add("hidden");
+			}
+			if (scoreboardContainer) {
+				scoreboardContainer.classList.add("hidden");
+			}
+			// Show start screen
 			startScreen.classList.remove("hidden");
 		}
 
@@ -433,8 +458,9 @@ export class GameManager {
 		this.currentSeed = null;
 		this.hintsUsed = 0;
 
-		// Update continue button state
+		// Update button states
 		await this.updateContinueButtonState();
+		await this.updateScoreboardButtonState();
 	}
 
 	/**
@@ -577,18 +603,21 @@ export class GameManager {
 		this.elapsedTime = 0;
 		this.hintsUsed = 0;
 
+		// Use the provided seed for this puzzle
+		this.currentSeed = seed;
+
 		const gameRecord: GameRecord = {
 			id: this.currentGameId,
 			created: Date.now(),
+			lastAccessed: Date.now(),
 			startTime: this.startTime,
 			elapsedTime: 0,
 			hintsUsed: 0,
+			seed: this.currentSeed,
+			difficulty: this.currentDifficulty,
 		};
 
 		await this.db.saveGame(gameRecord);
-
-		// Use the provided seed for this puzzle
-		this.currentSeed = seed;
 
 		// Generate board using WASM with the provided seed
 		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
@@ -621,6 +650,9 @@ export class GameManager {
 		// Clear any existing timer
 		this.stopTimer();
 
+		// Reset save counter
+		this.saveCounter = 0;
+
 		// Update display immediately
 		this.updateTimerDisplay();
 
@@ -628,7 +660,13 @@ export class GameManager {
 		this.timerInterval = window.setInterval(() => {
 			this.elapsedTime++;
 			this.updateTimerDisplay();
-			this.saveTimerState();
+
+			// Save timer state every 10 seconds to reduce database writes
+			this.saveCounter++;
+			if (this.saveCounter >= 10) {
+				this.saveTimerState();
+				this.saveCounter = 0;
+			}
 		}, 1000);
 	}
 
@@ -636,6 +674,10 @@ export class GameManager {
 		if (this.timerInterval !== null) {
 			clearInterval(this.timerInterval);
 			this.timerInterval = null;
+
+			// Save final timer state when stopping
+			this.saveTimerState();
+			this.saveCounter = 0; // Reset counter
 		}
 	}
 
@@ -710,6 +752,7 @@ export class GameManager {
 			startTime: this.startTime,
 			elapsedTime: this.elapsedTime,
 			hintsUsed: this.hintsUsed,
+			lastAccessed: Date.now(), // Update access time whenever timer state is saved
 		};
 
 		try {
@@ -753,12 +796,15 @@ export class GameManager {
 
 		const lastGame = await this.db.getLastGame();
 
-		// Show continue button only if there's an unfinished game
+		// Always show continue button, but disable it if there's no unfinished game
 		if (lastGame && !lastGame.isFinished) {
-			btnContinue.style.display = "";
 			btnContinue.disabled = false;
+			btnContinue.style.opacity = "1";
+			btnContinue.title = "Continue your last game";
 		} else {
-			btnContinue.style.display = "none";
+			btnContinue.disabled = true;
+			btnContinue.style.opacity = "0.5";
+			btnContinue.title = "No unfinished games available";
 		}
 	}
 
@@ -1126,5 +1172,372 @@ export class GameManager {
 		document.querySelectorAll(".cell.selected").forEach((cell) => {
 			cell.classList.remove("selected");
 		});
+	}
+
+	/**
+	 * Update the scoreboard button state based on whether there are games in the database
+	 */
+	async updateScoreboardButtonState(): Promise<void> {
+		const btnScoreboard = document.getElementById(
+			"btn-scoreboard"
+		) as HTMLButtonElement;
+		if (!btnScoreboard) return;
+
+		const allGames = await this.db.getAllGames();
+
+		// Always show scoreboard button, but disable it if there are no games
+		if (allGames.length > 0) {
+			btnScoreboard.disabled = false;
+			btnScoreboard.style.opacity = "1";
+			btnScoreboard.title = `View your ${allGames.length} game${
+				allGames.length === 1 ? "" : "s"
+			}`;
+		} else {
+			btnScoreboard.disabled = true;
+			btnScoreboard.style.opacity = "0.5";
+			btnScoreboard.title = "No games available to view";
+		}
+	}
+
+	/**
+	 * Show the scoreboard page with all game history
+	 */
+	async showScoreboard(): Promise<void> {
+		const startScreen = document.getElementById("start-screen");
+		const sudokuContainer = document.getElementById("sudoku-container");
+		const scoreboardContainer = document.getElementById("scoreboard-container");
+
+		if (!startScreen || !scoreboardContainer) return;
+
+		// Hide other screens, show scoreboard
+		startScreen.classList.add("hidden");
+		if (sudokuContainer) {
+			sudokuContainer.classList.add("hidden");
+		}
+		scoreboardContainer.classList.remove("hidden");
+
+		// Load and display all games
+		await this.loadScoreboardData();
+	}
+
+	/**
+	 * Load and display all games in the scoreboard
+	 */
+	private async loadScoreboardData(): Promise<void> {
+		const scoreboardContent = document.getElementById("scoreboard-content");
+		if (!scoreboardContent) return;
+
+		// Clear existing content
+		scoreboardContent.innerHTML = "";
+
+		try {
+			const allGames = await this.db.getAllGames();
+
+			if (allGames.length === 0) {
+				// Show empty state
+				const emptyState = document.createElement("div");
+				emptyState.className = "scoreboard-empty";
+				emptyState.innerHTML = `
+					<h3>No Games Yet</h3>
+					<p>Start playing to see your game history here!</p>
+				`;
+				scoreboardContent.appendChild(emptyState);
+				return;
+			}
+
+			// Create table
+			const tableContainer = document.createElement("div");
+			tableContainer.className = "scoreboard-table";
+
+			const table = document.createElement("table");
+
+			// Create table header
+			const thead = document.createElement("thead");
+			thead.innerHTML = `
+				<tr>
+					<th>Difficulty</th>
+					<th>Status</th>
+					<th>Started</th>
+					<th>Time Played</th>
+					<th>Hints</th>
+					<th>Action</th>
+				</tr>
+			`;
+			table.appendChild(thead);
+
+			// Create table body
+			const tbody = document.createElement("tbody");
+
+			for (const game of allGames) {
+				const row = await this.createGameRow(game);
+				tbody.appendChild(row);
+			}
+
+			table.appendChild(tbody);
+			tableContainer.appendChild(table);
+			scoreboardContent.appendChild(tableContainer);
+		} catch (error) {
+			console.error("Failed to load scoreboard data:", error);
+			scoreboardContent.innerHTML = `
+				<div class="scoreboard-empty">
+					<h3>Error Loading Games</h3>
+					<p>Failed to load game history. Please try again.</p>
+				</div>
+			`;
+		}
+	}
+
+	/**
+	 * Create a table row for a game entry
+	 */
+	private async createGameRow(game: GameRecord): Promise<HTMLElement> {
+		const row = document.createElement("tr");
+
+		// Get difficulty level (default to 1 if not set)
+		const difficulty = game.difficulty || 1;
+
+		// Create stars HTML similar to modal
+		let starsHtml = "";
+		for (let i = 1; i <= 5; i++) {
+			const starClass = i <= difficulty ? "star filled" : "star empty";
+			starsHtml += `<span class="${starClass}">★</span>`;
+		}
+
+		// Format start date/time using user's locale
+		const startDate = new Date(game.created);
+		const userLocale = navigator.language || "en-US";
+		const dateStr = startDate.toLocaleDateString(userLocale, {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+		});
+		const timeStr = startDate.toLocaleTimeString(userLocale, {
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+
+		// Format elapsed time
+		const elapsedTimeStr = this.formatTime(game.elapsedTime || 0);
+
+		// Determine status
+		const isFinished = game.isFinished || false;
+		const statusText = isFinished ? "Completed" : "Ongoing";
+		const statusClass = isFinished ? "completed" : "ongoing";
+
+		// Hints used
+		const hintsUsed = game.hintsUsed || 0;
+
+		// Create action button
+		const actionButton = await this.createGameActionButton(game);
+
+		row.innerHTML = `
+			<td>
+				<div class="difficulty-cell">
+					<div class="difficulty-stars">${starsHtml}</div>
+				</div>
+			</td>
+			<td>
+				<span class="status-badge ${statusClass}">${statusText}</span>
+			</td>
+			<td>${dateStr}<br><small>${timeStr}</small></td>
+			<td>${elapsedTimeStr}</td>
+			<td>${hintsUsed}</td>
+			<td class="action-cell">${actionButton}</td>
+		`;
+
+		// Add event listeners for action buttons
+		const actionBtn = row.querySelector(".game-action-btn");
+		if (actionBtn) {
+			actionBtn.addEventListener("click", (e) => {
+				const target = e.target as HTMLElement;
+				const action = target.getAttribute("data-action");
+
+				switch (action) {
+					case "continue":
+						const gameId = target.getAttribute("data-game-id");
+						if (gameId) {
+							this.continueGame(gameId);
+						}
+						break;
+					case "try-again":
+						const seed = target.getAttribute("data-seed");
+						const difficulty = target.getAttribute("data-difficulty");
+						if (seed && difficulty) {
+							this.playAgain(parseInt(seed), parseInt(difficulty));
+						}
+						break;
+					case "try-again-difficulty":
+						const difficultyOnly = target.getAttribute("data-difficulty");
+						if (difficultyOnly) {
+							this.playAgainDifficulty(parseInt(difficultyOnly));
+						}
+						break;
+				}
+			});
+		}
+
+		return row;
+	}
+
+	/**
+	 * Create action button HTML for a game entry
+	 */
+	private async createGameActionButton(game: GameRecord): Promise<string> {
+		const isFinished = game.isFinished || false;
+
+		if (isFinished) {
+			// For completed games, always offer "Try Again"
+			if (game.seed && game.difficulty) {
+				// Use the exact same seed to recreate the identical puzzle
+				return `<button class="game-action-btn try-again" data-action="try-again" data-seed="${game.seed}" data-difficulty="${game.difficulty}">Try Again</button>`;
+			} else {
+				// For legacy completed games without seed, offer new game with same difficulty
+				const difficulty = game.difficulty || 1;
+				return `<button class="game-action-btn try-again" data-action="try-again-difficulty" data-difficulty="${difficulty}">Try Again</button>`;
+			}
+		} else {
+			// For ongoing games, offer "Continue"
+			return `<button class="game-action-btn continue" data-action="continue" data-game-id="${game.id}">Continue</button>`;
+		}
+	}
+
+	/**
+	 * Continue a specific game by ID
+	 */
+	async continueGame(gameId: string): Promise<void> {
+		try {
+			// Load the specific game
+			const allGames = await this.db.getAllGames();
+			const targetGame = allGames.find((game) => game.id === gameId);
+
+			if (!targetGame) {
+				alert("Game not found");
+				return;
+			}
+
+			// Set this as the current game
+			this.currentGameId = targetGame.id;
+			this.startTime = targetGame.startTime || Date.now();
+			this.elapsedTime = targetGame.elapsedTime || 0;
+			this.hintsUsed = targetGame.hintsUsed || 0;
+			this.currentDifficulty = targetGame.difficulty || 1;
+
+			// Update lastAccessed timestamp when continuing
+			const updatedGame: GameRecord = {
+				...targetGame,
+				lastAccessed: Date.now(),
+			};
+			await this.db.updateGame(updatedGame);
+
+			// Load game state from database
+			await this.loadGameState();
+
+			// Hide scoreboard and show game
+			const scoreboardContainer = document.getElementById(
+				"scoreboard-container"
+			);
+			if (scoreboardContainer) {
+				scoreboardContainer.classList.add("hidden");
+			}
+
+			// Update URL and show game
+			this.updateURL();
+			await this.showGameBoard();
+			this.startTimer();
+		} catch (error) {
+			console.error("Failed to continue game:", error);
+			alert("Failed to load game. Please try again.");
+		}
+	}
+
+	/**
+	 * Start a new game with the same puzzle (using seed)
+	 */
+	async playAgain(seed: number, difficulty: number): Promise<void> {
+		try {
+			// Hide scoreboard before starting new game
+			const scoreboardContainer = document.getElementById(
+				"scoreboard-container"
+			);
+			if (scoreboardContainer) {
+				scoreboardContainer.classList.add("hidden");
+			}
+
+			await this.startNewGameFromSeed(seed, difficulty);
+		} catch (error) {
+			console.error("Failed to start new game with seed:", error);
+			alert("Failed to start game. Please try again.");
+		}
+	}
+
+	/**
+	 * Start a new game with the same difficulty level
+	 */
+	async playAgainDifficulty(difficulty: number): Promise<void> {
+		try {
+			// Hide scoreboard before starting new game
+			const scoreboardContainer = document.getElementById(
+				"scoreboard-container"
+			);
+			if (scoreboardContainer) {
+				scoreboardContainer.classList.add("hidden");
+			}
+
+			await this.startNewGame(difficulty);
+		} catch (error) {
+			console.error("Failed to start new game:", error);
+			alert("Failed to start game. Please try again.");
+		}
+	}
+
+	/**
+	 * Debug method to create test games for scoreboard testing
+	 * This should be removed in production
+	 */
+	async createTestGames(): Promise<void> {
+		console.log("Creating test games for scoreboard...");
+
+		const testGames: GameRecord[] = [
+			{
+				id: generateUUID(),
+				created: Date.now() - 3600000, // 1 hour ago
+				startTime: Date.now() - 3600000,
+				elapsedTime: 1800, // 30 minutes
+				hintsUsed: 2,
+				seed: 123456,
+				difficulty: 2,
+				isFinished: true,
+			},
+			{
+				id: generateUUID(),
+				created: Date.now() - 7200000, // 2 hours ago
+				startTime: Date.now() - 7200000,
+				elapsedTime: 900, // 15 minutes
+				hintsUsed: 0,
+				seed: 654321,
+				difficulty: 1,
+				isFinished: false,
+			},
+			{
+				id: generateUUID(),
+				created: Date.now() - 86400000, // 1 day ago
+				startTime: Date.now() - 86400000,
+				elapsedTime: 2400, // 40 minutes
+				hintsUsed: 5,
+				seed: 789012,
+				difficulty: 3,
+				isFinished: true,
+			},
+		];
+
+		for (const game of testGames) {
+			await this.db.saveGame(game);
+		}
+
+		console.log("Test games created!");
+
+		// Update button states
+		await this.updateContinueButtonState();
+		await this.updateScoreboardButtonState();
 	}
 }

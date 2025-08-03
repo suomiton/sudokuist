@@ -5,6 +5,7 @@
 export interface GameRecord {
 	id: string;
 	created: number;
+	lastAccessed?: number; // Last time the game was accessed/continued
 	startTime?: number; // When the timer started (timestamp)
 	elapsedTime?: number; // Total elapsed time in seconds
 	isFinished?: boolean; // Whether the puzzle has been completed

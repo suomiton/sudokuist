@@ -1,0 +1,244 @@
+/**
+ * Scoreboard component styles
+ */
+
+#scoreboard-container {
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	max-width: 1000px;
+	margin: 0 auto;
+	padding: 1rem;
+	overflow: hidden;
+	/* Prevent container from scrolling */
+}
+
+.scoreboard-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin: 2rem 0 1.5rem;
+	flex-wrap: wrap;
+	gap: 1rem;
+	flex-shrink: 0;
+	/* Prevent header from shrinking */
+}
+
+.scoreboard-header h2 {
+	color: var(--text-primary);
+	font-size: 2rem;
+	font-weight: 600;
+	margin: 0;
+}
+
+#btn-back-scoreboard {
+	padding: 0.75rem 1.5rem;
+	font-size: 1rem;
+	font-weight: 600;
+	background: var(--secondary);
+	color: var(--text-primary);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+#btn-back-scoreboard:hover {
+	background: var(--surface-hover);
+	transform: translateY(-1px);
+}
+
+#scoreboard-content {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 0;
+	/* Important for flex child scrolling */
+}
+
+.scoreboard-table {
+	background: var(--surface);
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	border: 1px solid var(--border);
+}
+
+.scoreboard-table table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.scoreboard-table th {
+	background: var(--primary);
+	color: white;
+	padding: 1rem;
+	text-align: left;
+	font-weight: 600;
+	font-size: 0.9rem;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.scoreboard-table td {
+	padding: 1rem;
+	border-bottom: 1px solid var(--border);
+	vertical-align: middle;
+}
+
+.scoreboard-table tr:last-child td {
+	border-bottom: none;
+}
+
+.scoreboard-table tr:hover {
+	background: #f8f9fa;
+}
+
+.difficulty-cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.difficulty-stars {
+	display: flex;
+	gap: calc(var(--gutter-base) * 0.25);
+}
+
+.difficulty-stars .star {
+	font-size: 1.1rem;
+	transition: all var(--transition-fast);
+}
+
+.difficulty-stars .star.filled {
+	color: #ffd700;
+	text-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+}
+
+.difficulty-stars .star.empty {
+	color: #ddd;
+}
+
+.status-badge {
+	padding: 0.25rem 0.75rem;
+	border-radius: 20px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	display: inline-block;
+}
+
+.status-badge.ongoing {
+	background: var(--warning-bg);
+	color: var(--warning-text);
+}
+
+.status-badge.completed {
+	background: var(--success-bg);
+	color: var(--success-text);
+}
+
+.action-cell {
+	text-align: center;
+}
+
+.game-action-btn {
+	padding: 0.5rem 1rem;
+	border: none;
+	border-radius: 6px;
+	font-weight: 600;
+	font-size: 0.875rem;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 80px;
+}
+
+.game-action-btn.continue {
+	background: var(--primary);
+	color: white;
+}
+
+.game-action-btn.continue:hover {
+	background: var(--primary-hover);
+	transform: translateY(-1px);
+}
+
+.game-action-btn.try-again {
+	background: var(--secondary);
+	color: var(--text-primary);
+	border: 1px solid var(--border);
+}
+
+.game-action-btn.try-again:hover {
+	background: var(--surface-hover);
+	transform: translateY(-1px);
+}
+
+.scoreboard-empty {
+	text-align: center;
+	padding: 3rem 1rem;
+	color: var(--text-secondary);
+	background: var(--surface);
+	border-radius: 12px;
+	border: 1px solid var(--border);
+}
+
+.scoreboard-empty h3 {
+	margin: 0 0 1rem;
+	color: var(--text-primary);
+	font-size: 1.5rem;
+}
+
+.scoreboard-empty p {
+	margin: 0;
+	font-size: 1.1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+	#scoreboard-container {
+		padding: 0.5rem;
+		height: 100vh;
+		/* Ensure full height on mobile */
+	}
+
+	.scoreboard-header {
+		flex-direction: column;
+		align-items: flex-start;
+		margin: 1rem 0 1rem;
+		/* Reduce top margin on mobile */
+	}
+
+	.scoreboard-header h2 {
+		font-size: 1.5rem;
+	}
+
+	.scoreboard-table {
+		overflow-x: auto;
+	}
+
+	.scoreboard-table th,
+	.scoreboard-table td {
+		padding: 0.75rem 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.game-action-btn {
+		padding: 0.4rem 0.8rem;
+		font-size: 0.8rem;
+		min-width: 70px;
+	}
+}
+
+@media (max-width: 600px) {
+
+	.scoreboard-table th:nth-child(4),
+	.scoreboard-table td:nth-child(4) {
+		display: none;
+		/* Hide hints column on very small screens */
+	}
+}
