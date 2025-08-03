@@ -901,15 +901,9 @@ export class GameManager {
 	 */
 	private setupNumpad(): void {
 		const numpad = document.getElementById("number-picker");
-		const numpadClose = document.getElementById("numpad-close");
 		const numpadButtons = document.querySelectorAll(".numpad-btn");
 
-		if (!numpad || !numpadClose) return;
-
-		// Close numpad when close button is clicked
-		numpadClose.addEventListener("click", () => {
-			this.hideNumpad();
-		});
+		if (!numpad) return;
 
 		// Handle numpad button clicks
 		numpadButtons.forEach((button) => {
