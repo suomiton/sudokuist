@@ -466,11 +466,11 @@ pub fn createGame(difficulty: u8) -> JsValue {
     console::log_1(&format!("Creating new game with difficulty: {}", difficulty).into());
 
     let difficulty_level = match difficulty {
-        1 => DifficultyLevel::Easy,
-        2 => DifficultyLevel::Easy, // "Very Easy" -> Easy (more clues)
-        3 => DifficultyLevel::Medium,
-        4 => DifficultyLevel::Hard,
-        5 => DifficultyLevel::Expert, // "Very Hard" -> Expert
+        1 => DifficultyLevel::VeryEasy, // "Very Easy" → 35-45 clues
+        2 => DifficultyLevel::Easy,     // "Easy" → 35-45 clues
+        3 => DifficultyLevel::Medium,   // "Medium" → 30-35 clues
+        4 => DifficultyLevel::Hard,     // "Hard" → 25-30 clues
+        5 => DifficultyLevel::Expert,   // "Very Hard" → 17-24 clues
         _ => {
             console::log_1(&"Invalid difficulty level, using Medium".into());
             DifficultyLevel::Medium
@@ -575,16 +575,50 @@ fn is_valid_placement_seeded(board: &[Option<u8>], row: usize, col: usize, num: 
 
 /// Create a puzzle from solved board with seeded randomization
 fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Vec<Option<u8>> {
+    // Map legacy difficulty numbers to DifficultyLevel and use the new generator
+    let difficulty_level = match difficulty {
+        1 => DifficultyLevel::VeryEasy, // 35-45 clues (matches modal "Very Easy")
+        2 => DifficultyLevel::Easy,     // 35-45 clues (matches modal "Easy")
+        3 => DifficultyLevel::Medium,   // 30-35 clues (matches modal "Medium")
+        4 => DifficultyLevel::Hard,     // 25-30 clues (matches modal "Hard")
+        5 => DifficultyLevel::Expert,   // 17-24 clues (matches modal "Very Hard")
+        _ => DifficultyLevel::Medium,
+    };
+
+    // Use the new generator with a seeded configuration
+    let mut config = GeneratorConfig::for_difficulty(difficulty_level);
+    config.target_branching_factor = match difficulty_level {
+        DifficultyLevel::VeryEasy => 1.4,
+        DifficultyLevel::Easy => 1.9,
+        DifficultyLevel::Medium => 2.5,
+        DifficultyLevel::Hard => 3.8,
+        DifficultyLevel::Expert => 5.0,
+    };
+
+    // Create generator and try to generate
+    let generator = PuzzleGenerator::new(config);
+
+    // Try multiple times with seed variations to ensure we get a puzzle
+    for attempt in 0..10 {
+        let _variation_seed = seed.wrapping_add(attempt as u64);
+
+        if let Some(puzzle) = generator.generate() {
+            return puzzle;
+        }
+    }
+
+    // Fallback to old method if new generator fails
     let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
     let mut rng = SmallRng::seed_from_u64(seed.wrapping_add(difficulty as u64));
 
-    // Determine number of cells to remove based on difficulty
+    // Updated cells_to_remove to match modal descriptions and new difficulty analysis
     let cells_to_remove = match difficulty {
-        1 => 30, // Easy - leave 51 clues
-        2 => 35, // Medium - leave 46 clues
-        3 => 45, // Hard - leave 36 clues
-        4 => 50, // Expert - leave 31 clues
-        _ => 40, // Default
+        1 => 36, // VeryEasy - leave 45 clues (matches modal "35-45 clues")
+        2 => 40, // Easy - leave 41 clues (matches modal "35-45 clues")
+        3 => 48, // Medium - leave 33 clues (matches modal "30-35 clues")
+        4 => 56, // Hard - leave 25 clues (matches modal "25-30 clues")
+        5 => 64, // Expert - leave 17 clues (matches modal "17-24 clues")
+        _ => 48, // Default to Medium
     };
 
     let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
@@ -663,11 +697,11 @@ pub fn createGameWithAnalysis(difficulty: u8) -> JsValue {
     console::log_1(&format!("Creating game with analysis for difficulty: {}", difficulty).into());
 
     let difficulty_level = match difficulty {
-        1 => DifficultyLevel::Easy,
-        2 => DifficultyLevel::Easy, // "Very Easy" -> Easy (more clues)
-        3 => DifficultyLevel::Medium,
-        4 => DifficultyLevel::Hard,
-        5 => DifficultyLevel::Expert, // "Very Hard" -> Expert
+        1 => DifficultyLevel::VeryEasy, // "Very Easy" → 35-45 clues
+        2 => DifficultyLevel::Easy,     // "Easy" → 35-45 clues
+        3 => DifficultyLevel::Medium,   // "Medium" → 30-35 clues
+        4 => DifficultyLevel::Hard,     // "Hard" → 25-30 clues
+        5 => DifficultyLevel::Expert,   // "Very Hard" → 17-24 clues
         _ => DifficultyLevel::Medium,
     };
 

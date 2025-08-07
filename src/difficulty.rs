@@ -53,11 +53,11 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
     // Heuristic based on clue count and complexity
     match clue_count {
         45..=81 => SolvingTechnique::NakedSingle,
-        35..=44 => SolvingTechnique::HiddenSingle,
+        36..=44 => SolvingTechnique::HiddenSingle,
 
-        // Medium range: 30-35 clues - more forgiving medium classification
-        33..=34 => SolvingTechnique::HiddenPair,
-        32 => {
+        // Medium range: 30-35 clues - moderate difficulty
+        34..=35 => SolvingTechnique::HiddenPair,
+        32..=33 => {
             if complexity > 2.8 {
                 SolvingTechnique::NakedPair
             } else {
@@ -66,51 +66,40 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
         }
         30..=31 => SolvingTechnique::NakedPair,
 
-        // Medium-Hard range: 27-29 clues - BoxLineReduction techniques
-        29 => {
-            if complexity > 2.5 {
+        // Hard range: 25-29 clues - challenging
+        28..=29 => SolvingTechnique::BoxLineReduction,
+        27 => {
+            if complexity > 2.8 {
                 SolvingTechnique::PointingPairs
             } else {
                 SolvingTechnique::BoxLineReduction
             }
         }
-        27..=28 => SolvingTechnique::BoxLineReduction,
-
-        // Hard range: 25-26 clues - should require XWing techniques
-        26 => {
+        26 => SolvingTechnique::PointingPairs,
+        25 => {
             if complexity > 3.2 {
                 SolvingTechnique::XWing
             } else {
                 SolvingTechnique::PointingPairs
             }
         }
-        25 => {
-            if complexity > 3.5 {
-                SolvingTechnique::XWing
-            } else {
-                SolvingTechnique::PointingPairs
-            }
-        }
 
-        // Hard range: 22-24 clues - Swordfish and advanced techniques
-        23..=24 => {
+        // Very Hard range: 17-24 clues - expert level
+        22..=24 => {
             if complexity > 3.8 {
                 SolvingTechnique::Swordfish
             } else {
                 SolvingTechnique::XWing
             }
         }
-        22 => SolvingTechnique::Swordfish,
-
-        // Expert range: 17-21 clues - should require XYWing and above
-        20..=21 => {
+        20..=21 => SolvingTechnique::Swordfish,
+        18..=19 => {
             if complexity > 4.2 {
                 SolvingTechnique::XYWing
             } else {
                 SolvingTechnique::Swordfish
             }
         }
-        18..=19 => SolvingTechnique::XYWing,
         17 => {
             if complexity > 4.5 {
                 SolvingTechnique::XYChain
