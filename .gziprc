@@ -1,0 +1,13 @@
+# Gzip configuration for optimal compression
+# This file helps ensure consistent gzip compression across environments
+
+# Maximum compression level (9)
+# Trade-off: Higher compression time for smaller file sizes
+GZIP_LEVEL=9
+
+# File types to compress
+GZIP_TYPES="text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/wasm"
+
+# Minimum file size to compress (in bytes)
+# Files smaller than this won't benefit much from compression
+GZIP_MIN_SIZE=1024

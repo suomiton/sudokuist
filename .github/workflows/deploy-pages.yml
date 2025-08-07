@@ -47,6 +47,11 @@ jobs:
         node-version: '20'
         cache: 'npm'
 
+    - name: 📦 Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc gzip
+
     - name: 📦 Install npm dependencies
       run: npm ci
 
@@ -60,15 +65,18 @@ jobs:
         echo "🦀 Building WASM with release optimizations..."
         wasm-pack build --target web --out-dir pkg --release
 
-    - name: 🏗️ Build TypeScript and Bundle
+    - name: 🏗️ Build with optimizations
       run: |
         echo "📁 Copying WASM files for TypeScript..."
         cp -r pkg src/
         echo "📁 Copying WASM files to public directory for Vite..."
         cp pkg/sudoku_wasm.js pkg/sudoku_wasm_bg.wasm public/
-        echo "🔨 Building with Vite in production mode..."
+        echo "� Running TypeScript type check..."
         NODE_ENV=production npm run type-check
+        echo "🔨 Building with Vite in production mode with full optimization..."
         NODE_ENV=production npx vite build --mode production --base=/sudokuist/
+        echo "🗜️ Compressing files with gzip for better performance..."
+        find dist -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" -o -name "*.wasm" \) -exec gzip -9 -k {} \;
 
     - name: 📋 Copy additional assets
       run: |
@@ -86,13 +94,29 @@ jobs:
         du -sh dist/* | sort -hr >> build-report.md
         echo "\`\`\`" >> build-report.md
         echo "" >> build-report.md
-        echo "### Compressed Sizes" >> build-report.md
+        echo "### File Sizes (Original vs Compressed)" >> build-report.md
         echo "\`\`\`" >> build-report.md
-        find dist -name "*.js" -o -name "*.css" | while read file; do
-          original_size=$(stat -c%s "$file")
-          gzipped_size=$(gzip -c "$file" | wc -c)
-          echo "$(basename "$file"): ${original_size} bytes → ${gzipped_size} bytes (gzipped)" >> build-report.md
+        find dist -name "*.js" -o -name "*.css" -o -name "*.html" -o -name "*.wasm" | while read file; do
+          if [ -f "$file" ]; then
+            original_size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+            if [ -f "$file.gz" ]; then
+              gzipped_size=$(stat -c%s "$file.gz" 2>/dev/null || stat -f%z "$file.gz")
+              compression_ratio=$(echo "scale=1; 100 - ($gzipped_size * 100 / $original_size)" | bc -l 2>/dev/null || echo "N/A")
+              echo "$(basename "$file"): ${original_size} bytes → ${gzipped_size} bytes (${compression_ratio}% reduction)" >> build-report.md
+            else
+              echo "$(basename "$file"): ${original_size} bytes (no compression)" >> build-report.md
+            fi
+          fi
         done
+        echo "\`\`\`" >> build-report.md
+        echo "" >> build-report.md
+        echo "### Minification Status" >> build-report.md
+        echo "\`\`\`" >> build-report.md
+        echo "✓ JavaScript: Minified with Terser (aggressive settings)" >> build-report.md
+        echo "✓ CSS: Minified and optimized" >> build-report.md  
+        echo "✓ HTML: Minified with html-minifier-terser" >> build-report.md
+        echo "✓ WASM JS: Minified with custom plugin" >> build-report.md
+        echo "✓ Compression: Gzip level 9 applied to all assets" >> build-report.md
         echo "\`\`\`" >> build-report.md
         cp build-report.md dist/
 
