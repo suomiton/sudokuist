@@ -30,7 +30,6 @@ export interface ValidationResult {
 // WASM module interface (will be available after loading)
 export interface WasmModule {
 	createBoard(): Uint8Array;
-	createGame(difficulty: number): (number | undefined)[];
 	createGameWithSeed(difficulty: number, seed: bigint): (number | undefined)[];
 	validateBoard(board: (number | undefined)[]): ValidationResult;
 	solve_puzzle(board: number[]): number[];
