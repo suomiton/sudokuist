@@ -2,8 +2,6 @@
  * WASM module loader and initialization
  */
 
-import type { WasmModule } from "./types.js";
-
 /**
  * Load WASM module and make it globally available
  */
