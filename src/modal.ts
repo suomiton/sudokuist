@@ -237,12 +237,12 @@ export class Modal {
 				stars: 4,
 				description: "25-30 clues, challenging",
 			},
-			{
-				level: 5,
-				name: "Very Hard",
-				stars: 5,
-				description: "17-24 clues, expert level",
-			},
+		{
+			level: 5,
+			name: "Expert",
+			stars: 5,
+			description: "17-24 clues, expert level",
+		},
 		];
 
 		difficulties.forEach((diff) => {

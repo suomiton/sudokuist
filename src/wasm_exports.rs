@@ -51,14 +51,14 @@ fn from_js_board(js_board: &[u8]) -> Vec<Option<u8>> {
 /// Generate a new Sudoku puzzle with the specified difficulty
 ///
 /// # Arguments
-/// * `difficulty` - Difficulty level (0=Easy, 1=Medium, 2=Hard, 3=Expert)
+/// * `difficulty` - Difficulty level (1=VeryEasy, 2=Easy, 3=Medium, 4=Hard, 5=Expert)
 ///
 /// # Returns
 /// A new puzzle as a flat array of 81 numbers (0 for empty cells)
 ///
 /// # JavaScript Example
 /// ```javascript
-/// const puzzle = generate_puzzle(1); // Generate medium difficulty
+/// const puzzle = generate_puzzle(3); // Generate medium difficulty
 /// console.log("Generated puzzle:", puzzle);
 /// ```
 #[wasm_bindgen]
@@ -66,10 +66,11 @@ pub fn generate_puzzle(difficulty: u8) -> Vec<u8> {
     console::log_1(&format!("Generating puzzle with difficulty level {}", difficulty).into());
 
     let difficulty_level = match difficulty {
-        0 => DifficultyLevel::Easy,
-        1 => DifficultyLevel::Medium,
-        2 => DifficultyLevel::Hard,
-        3 => DifficultyLevel::Expert,
+        1 => DifficultyLevel::VeryEasy,
+        2 => DifficultyLevel::Easy,
+        3 => DifficultyLevel::Medium,
+        4 => DifficultyLevel::Hard,
+        5 => DifficultyLevel::Expert,
         _ => {
             console::log_1(&"Invalid difficulty level, using Medium".into());
             DifficultyLevel::Medium
@@ -100,7 +101,7 @@ pub fn generate_puzzle(difficulty: u8) -> Vec<u8> {
 /// Generate a puzzle with custom configuration
 ///
 /// # Arguments
-/// * `difficulty` - Target difficulty level (0-3)
+/// * `difficulty` - Target difficulty level (1-5)
 /// * `min_clues` - Minimum number of clues
 /// * `max_clues` - Maximum number of clues
 /// * `prefer_symmetry` - Whether to prefer symmetric patterns
@@ -115,10 +116,11 @@ pub fn generate_custom_puzzle(
     prefer_symmetry: bool,
 ) -> Vec<u8> {
     let difficulty_level = match difficulty {
-        0 => DifficultyLevel::Easy,
-        1 => DifficultyLevel::Medium,
-        2 => DifficultyLevel::Hard,
-        3 => DifficultyLevel::Expert,
+        1 => DifficultyLevel::VeryEasy,
+        2 => DifficultyLevel::Easy,
+        3 => DifficultyLevel::Medium,
+        4 => DifficultyLevel::Hard,
+        5 => DifficultyLevel::Expert,
         _ => DifficultyLevel::Medium,
     };
 
@@ -561,7 +563,7 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
 /// Create a new Sudoku game with specified difficulty and seed (legacy compatibility)
 ///
 /// # Arguments
-/// * `difficulty` - Difficulty level (1=Easy, 2=Medium, 3=Hard, 4=Expert)
+/// * `difficulty` - Difficulty level (1=VeryEasy, 2=Easy, 3=Medium, 4=Hard, 5=Expert)
 /// * `seed` - Seed for deterministic puzzle generation
 ///
 /// # Returns
