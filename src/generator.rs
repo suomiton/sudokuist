@@ -55,16 +55,16 @@ impl GeneratorConfig {
 
         match difficulty {
             DifficultyLevel::VeryEasy => {
-                cfg.min_clues = 35; // Very high clue count for simplest puzzles
-                cfg.max_clues = 45; // Even more clues than Easy
+                cfg.min_clues = 40; // Very high clue count for simplest puzzles
+                cfg.max_clues = 50; // Even more clues than Easy
                 cfg.min_branching_factor = 1.0; // Minimal complexity
                 cfg.max_branching_factor = 1.7; // Lower than Easy range
                 cfg.target_branching_factor = 1.4; // Very low complexity target
                 cfg.branching_factor_tolerance = 0.2; // Tight tolerance for consistency
             }
             DifficultyLevel::Easy => {
-                cfg.min_clues = 35;
-                cfg.max_clues = 45;
+                cfg.min_clues = 34;
+                cfg.max_clues = 42;
                 cfg.min_branching_factor = 1.6; // Updated to match actual results
                 cfg.max_branching_factor = 2.2; // Updated based on observations
                 cfg.target_branching_factor = 1.9; // Updated to match actual average
