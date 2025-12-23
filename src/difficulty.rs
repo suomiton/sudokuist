@@ -3,8 +3,12 @@
 //! This module analyzes Sudoku puzzles to determine their difficulty level
 //! based on the solving techniques required and other complexity metrics.
 
+use crate::grid::{coords_to_index, index_to_coords};
 use crate::solver::HumanStyleSolver;
-use crate::types::{DifficultyAnalysis, DifficultyLevel, SolvingTechnique};
+use crate::types::{
+    CandidateGrid, DifficultyAnalysis, DifficultyLevel, SolvingTechnique, BOARD_SIZE, BOX_SIZE,
+    GRID_SIZE,
+};
 
 /// Analyzes the difficulty of a Sudoku puzzle
 ///
@@ -49,66 +53,79 @@ pub fn analyze_difficulty(board: &[Option<u8>]) -> DifficultyAnalysis {
 fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
     let clue_count = board.iter().filter(|c| c.is_some()).count();
     let complexity = calculate_puzzle_complexity(board);
+    let single_fill_count = count_naked_single_propagation(board);
+    let empty_cells = BOARD_SIZE - clue_count;
+    let single_fill_ratio = if empty_cells > 0 {
+        single_fill_count as f64 / empty_cells as f64
+    } else {
+        1.0
+    };
 
-    // Heuristic based on clue count and complexity
-    match clue_count {
-        45..=81 => SolvingTechnique::NakedSingle,
-        36..=44 => SolvingTechnique::HiddenSingle,
+    // Heuristic based on clue count, visibility of singles, and complexity
+    if clue_count >= 50 || single_fill_ratio >= 0.70 {
+        SolvingTechnique::NakedSingle
+    } else if clue_count >= 42 || single_fill_ratio >= 0.55 {
+        SolvingTechnique::HiddenSingle
+    } else if clue_count >= 36 || single_fill_ratio >= 0.40 {
+        SolvingTechnique::HiddenPair
+    } else if clue_count >= 32 || single_fill_ratio >= 0.25 {
+        if complexity > 3.1 {
+            SolvingTechnique::NakedPair
+        } else {
+            SolvingTechnique::HiddenPair
+        }
+    } else if clue_count >= 30 {
+        if complexity > 3.4 || single_fill_ratio < 0.15 {
+            SolvingTechnique::BoxLineReduction
+        } else {
+            SolvingTechnique::NakedPair
+        }
+    } else {
+        match clue_count {
+            // Hard range: 25-29 clues - challenging
+            28..=29 => SolvingTechnique::BoxLineReduction,
+            27 => {
+                if complexity > 2.9 || single_fill_ratio < 0.12 {
+                    SolvingTechnique::PointingPairs
+                } else {
+                    SolvingTechnique::BoxLineReduction
+                }
+            }
+            26 => SolvingTechnique::PointingPairs,
+            25 => {
+                if complexity > 3.3 || single_fill_ratio < 0.08 {
+                    SolvingTechnique::XWing
+                } else {
+                    SolvingTechnique::PointingPairs
+                }
+            }
 
-        // Medium range: 30-35 clues - moderate difficulty
-        34..=35 => SolvingTechnique::HiddenPair,
-        32..=33 => {
-            if complexity > 2.8 {
-                SolvingTechnique::NakedPair
-            } else {
-                SolvingTechnique::HiddenPair
+            // Very Hard range: 17-24 clues - expert level
+            22..=24 => {
+                if complexity > 3.8 {
+                    SolvingTechnique::Swordfish
+                } else {
+                    SolvingTechnique::XWing
+                }
             }
-        }
-        30..=31 => SolvingTechnique::NakedPair,
+            20..=21 => SolvingTechnique::Swordfish,
+            18..=19 => {
+                if complexity > 4.2 {
+                    SolvingTechnique::XYWing
+                } else {
+                    SolvingTechnique::Swordfish
+                }
+            }
+            17 => {
+                if complexity > 4.5 {
+                    SolvingTechnique::XYChain
+                } else {
+                    SolvingTechnique::XYWing
+                }
+            }
 
-        // Hard range: 25-29 clues - challenging
-        28..=29 => SolvingTechnique::BoxLineReduction,
-        27 => {
-            if complexity > 2.8 {
-                SolvingTechnique::PointingPairs
-            } else {
-                SolvingTechnique::BoxLineReduction
-            }
+            _ => SolvingTechnique::ForcingChain,
         }
-        26 => SolvingTechnique::PointingPairs,
-        25 => {
-            if complexity > 3.2 {
-                SolvingTechnique::XWing
-            } else {
-                SolvingTechnique::PointingPairs
-            }
-        }
-
-        // Very Hard range: 17-24 clues - expert level
-        22..=24 => {
-            if complexity > 3.8 {
-                SolvingTechnique::Swordfish
-            } else {
-                SolvingTechnique::XWing
-            }
-        }
-        20..=21 => SolvingTechnique::Swordfish,
-        18..=19 => {
-            if complexity > 4.2 {
-                SolvingTechnique::XYWing
-            } else {
-                SolvingTechnique::Swordfish
-            }
-        }
-        17 => {
-            if complexity > 4.5 {
-                SolvingTechnique::XYChain
-            } else {
-                SolvingTechnique::XYWing
-            }
-        }
-
-        _ => SolvingTechnique::ForcingChain,
     }
 }
 
@@ -148,6 +165,62 @@ fn calculate_puzzle_complexity(board: &[Option<u8>]) -> f64 {
     }
 
     complexity.max(1.0).min(5.0)
+}
+
+/// Counts how many naked singles can be placed after basic candidate propagation.
+fn count_naked_single_propagation(board: &[Option<u8>]) -> usize {
+    let mut working_board = board.to_vec();
+    let mut candidates = CandidateGrid::new();
+
+    for index in 0..BOARD_SIZE {
+        if let Some(num) = working_board[index] {
+            candidates.set_only_candidate(index, num);
+            eliminate_candidates_in_units(&mut candidates, index, num);
+        }
+    }
+
+    let mut placements = 0;
+    loop {
+        let mut progress = false;
+
+        for index in 0..BOARD_SIZE {
+            if working_board[index].is_none() && candidates.candidate_count(index) == 1 {
+                if let Some(&num) = candidates.get_candidates(index).first() {
+                    working_board[index] = Some(num);
+                    candidates.set_only_candidate(index, num);
+                    eliminate_candidates_in_units(&mut candidates, index, num);
+                    placements += 1;
+                    progress = true;
+                }
+            }
+        }
+
+        if !progress {
+            break;
+        }
+    }
+
+    placements
+}
+
+fn eliminate_candidates_in_units(candidates: &mut CandidateGrid, index: usize, num: u8) {
+    let (row, col) = index_to_coords(index);
+
+    for i in 0..GRID_SIZE {
+        let row_idx = coords_to_index(row, i);
+        let col_idx = coords_to_index(i, col);
+        candidates.remove_candidate(row_idx, num);
+        candidates.remove_candidate(col_idx, num);
+    }
+
+    let box_start_row = (row / BOX_SIZE) * BOX_SIZE;
+    let box_start_col = (col / BOX_SIZE) * BOX_SIZE;
+    for r in box_start_row..box_start_row + BOX_SIZE {
+        for c in box_start_col..box_start_col + BOX_SIZE {
+            let box_idx = coords_to_index(r, c);
+            candidates.remove_candidate(box_idx, num);
+        }
+    }
 }
 
 /// Classifies the difficulty level based on solving requirements
