@@ -59,7 +59,7 @@ pub fn analyze_difficulty(board: &[Option<u8>]) -> DifficultyAnalysis {
 fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
     let clue_count = board.iter().filter(|c| c.is_some()).count();
     let complexity = calculate_puzzle_complexity(board);
-    let single_fill_count = count_naked_single_propagation(board);
+    let (single_fill_count, candidate_reduction_ratio) = basic_propagation_stats(board);
     let empty_cells = BOARD_SIZE - clue_count;
     let single_fill_ratio = if empty_cells > 0 {
         single_fill_count as f64 / empty_cells as f64
@@ -67,14 +67,14 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
         1.0
     };
 
-    // Heuristic based on clue count, visibility of singles, and complexity
-    if clue_count >= 50 || single_fill_ratio >= 0.70 {
+    // Heuristic based on clue count, candidate reduction, singles visibility, and complexity
+    if clue_count >= 50 || single_fill_ratio >= 0.70 || candidate_reduction_ratio >= 0.70 {
         SolvingTechnique::NakedSingle
-    } else if clue_count >= 42 || single_fill_ratio >= 0.55 {
+    } else if clue_count >= 42 || single_fill_ratio >= 0.55 || candidate_reduction_ratio >= 0.55 {
         SolvingTechnique::HiddenSingle
-    } else if clue_count >= 36 || single_fill_ratio >= 0.40 {
+    } else if clue_count >= 36 || single_fill_ratio >= 0.40 || candidate_reduction_ratio >= 0.42 {
         SolvingTechnique::HiddenPair
-    } else if clue_count >= 32 || single_fill_ratio >= 0.25 {
+    } else if clue_count >= 32 || single_fill_ratio >= 0.25 || candidate_reduction_ratio >= 0.30 {
         if complexity > 3.1 {
             SolvingTechnique::NakedPair
         } else {
@@ -173,8 +173,8 @@ fn calculate_puzzle_complexity(board: &[Option<u8>]) -> f64 {
     complexity.max(1.0).min(5.0)
 }
 
-/// Counts how many naked singles can be placed after basic candidate propagation.
-fn count_naked_single_propagation(board: &[Option<u8>]) -> usize {
+/// Returns naked single placements and candidate reduction ratio after basic propagation.
+fn basic_propagation_stats(board: &[Option<u8>]) -> (usize, f64) {
     let mut working_board = board.to_vec();
     let mut candidates = CandidateGrid::new();
 
@@ -184,6 +184,10 @@ fn count_naked_single_propagation(board: &[Option<u8>]) -> usize {
             eliminate_candidates_in_units(&mut candidates, index, num);
         }
     }
+
+    let clue_count = board.iter().filter(|c| c.is_some()).count();
+    let empty_cells = BOARD_SIZE - clue_count;
+    let initial_candidate_total = empty_cells * 9;
 
     let mut placements = 0;
     loop {
@@ -206,7 +210,19 @@ fn count_naked_single_propagation(board: &[Option<u8>]) -> usize {
         }
     }
 
-    placements
+    let remaining_candidate_total: usize = (0..BOARD_SIZE)
+        .filter(|&index| working_board[index].is_none())
+        .map(|index| candidates.candidate_count(index))
+        .sum();
+
+    let candidate_reduction_ratio = if initial_candidate_total > 0 {
+        (initial_candidate_total - remaining_candidate_total) as f64
+            / initial_candidate_total as f64
+    } else {
+        1.0
+    };
+
+    (placements, candidate_reduction_ratio)
 }
 
 fn eliminate_candidates_in_units(candidates: &mut CandidateGrid, index: usize, num: u8) {
@@ -316,6 +332,98 @@ fn classify_difficulty_level(
 mod tests {
     use super::*;
 
+    const SOLVED_BOARD: [Option<u8>; 81] = [
+        Some(5),
+        Some(3),
+        Some(4),
+        Some(6),
+        Some(7),
+        Some(8),
+        Some(9),
+        Some(1),
+        Some(2),
+        Some(6),
+        Some(7),
+        Some(2),
+        Some(1),
+        Some(9),
+        Some(5),
+        Some(3),
+        Some(4),
+        Some(8),
+        Some(1),
+        Some(9),
+        Some(8),
+        Some(3),
+        Some(4),
+        Some(2),
+        Some(5),
+        Some(6),
+        Some(7),
+        Some(8),
+        Some(5),
+        Some(9),
+        Some(7),
+        Some(6),
+        Some(1),
+        Some(4),
+        Some(2),
+        Some(3),
+        Some(4),
+        Some(2),
+        Some(6),
+        Some(8),
+        Some(5),
+        Some(3),
+        Some(7),
+        Some(9),
+        Some(1),
+        Some(7),
+        Some(1),
+        Some(3),
+        Some(9),
+        Some(2),
+        Some(4),
+        Some(8),
+        Some(5),
+        Some(6),
+        Some(9),
+        Some(6),
+        Some(1),
+        Some(5),
+        Some(3),
+        Some(7),
+        Some(2),
+        Some(8),
+        Some(4),
+        Some(2),
+        Some(8),
+        Some(7),
+        Some(4),
+        Some(1),
+        Some(9),
+        Some(6),
+        Some(3),
+        Some(5),
+        Some(3),
+        Some(4),
+        Some(5),
+        Some(2),
+        Some(8),
+        Some(6),
+        Some(1),
+        Some(7),
+        Some(9),
+    ];
+
+    fn board_with_removed(indices: &[usize]) -> Vec<Option<u8>> {
+        let mut board = SOLVED_BOARD.to_vec();
+        for &index in indices {
+            board[index] = None;
+        }
+        board
+    }
+
     #[test]
     fn test_difficulty_classification() {
         // Test basic technique classification
@@ -365,5 +473,24 @@ mod tests {
             hard_technique >= SolvingTechnique::XWing
                 && hard_technique <= SolvingTechnique::Swordfish
         );
+    }
+
+    #[test]
+    fn test_heuristic_easy_medium_boundary() {
+        let mut easy_removed = Vec::new();
+        for index in 41..81 {
+            easy_removed.push(index);
+        }
+        let easy_board = board_with_removed(&easy_removed);
+        let easy_technique = analyze_difficulty_heuristic(&easy_board);
+        assert_eq!(easy_technique, SolvingTechnique::HiddenSingle);
+
+        let mut medium_removed = Vec::new();
+        for index in 36..81 {
+            medium_removed.push(index);
+        }
+        let medium_board = board_with_removed(&medium_removed);
+        let medium_technique = analyze_difficulty_heuristic(&medium_board);
+        assert_eq!(medium_technique, SolvingTechnique::HiddenPair);
     }
 }
