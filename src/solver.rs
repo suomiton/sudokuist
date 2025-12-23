@@ -291,38 +291,390 @@ impl HumanStyleSolver {
         }
     }
 
-    // Placeholder implementations for more advanced techniques
-    // These would contain the full logic for each technique
+    fn row_indices(row: usize) -> Vec<usize> {
+        (0..GRID_SIZE).map(|col| coords_to_index(row, col)).collect()
+    }
+
+    fn col_indices(col: usize) -> Vec<usize> {
+        (0..GRID_SIZE).map(|row| coords_to_index(row, col)).collect()
+    }
+
+    fn box_indices(box_row: usize, box_col: usize) -> Vec<usize> {
+        let start_row = box_row * BOX_SIZE;
+        let start_col = box_col * BOX_SIZE;
+        let mut indices = Vec::with_capacity(BOX_SIZE * BOX_SIZE);
+        for r in start_row..start_row + BOX_SIZE {
+            for c in start_col..start_col + BOX_SIZE {
+                indices.push(coords_to_index(r, c));
+            }
+        }
+        indices
+    }
+
+    fn peers(index: usize) -> Vec<usize> {
+        let (row, col) = index_to_coords(index);
+        let mut peers = Vec::new();
+
+        for i in 0..GRID_SIZE {
+            let row_idx = coords_to_index(row, i);
+            let col_idx = coords_to_index(i, col);
+            if row_idx != index {
+                peers.push(row_idx);
+            }
+            if col_idx != index && col_idx != row_idx {
+                peers.push(col_idx);
+            }
+        }
+
+        let box_start_row = (row / BOX_SIZE) * BOX_SIZE;
+        let box_start_col = (col / BOX_SIZE) * BOX_SIZE;
+        for r in box_start_row..box_start_row + BOX_SIZE {
+            for c in box_start_col..box_start_col + BOX_SIZE {
+                let box_idx = coords_to_index(r, c);
+                if box_idx != index && !peers.contains(&box_idx) {
+                    peers.push(box_idx);
+                }
+            }
+        }
+
+        peers
+    }
 
     /// Finds naked pairs - two cells in a unit with identical candidate pairs
     fn find_naked_pairs(&mut self) -> bool {
-        // Implementation would go here
-        // For now, just record if this technique level is attempted
-        false
+        let mut progress = false;
+
+        let mut apply_pairs = |indices: Vec<usize>, solver: &mut Self| {
+            use std::collections::HashMap;
+
+            let mut pairs: HashMap<(u8, u8), Vec<usize>> = HashMap::new();
+            for &index in &indices {
+                if solver.board[index].is_none() && solver.candidates.candidate_count(index) == 2 {
+                    let candidates = solver.candidates.get_candidates(index);
+                    if candidates.len() == 2 {
+                        let key = (candidates[0], candidates[1]);
+                        pairs.entry(key).or_default().push(index);
+                    }
+                }
+            }
+
+            for (pair, cells) in pairs {
+                if cells.len() == 2 {
+                    for &index in &indices {
+                        if !cells.contains(&index) && solver.board[index].is_none() {
+                            for num in [pair.0, pair.1] {
+                                if solver.candidates.has_candidate(index, num) {
+                                    solver.candidates.remove_candidate(index, num);
+                                    progress = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        for row in 0..GRID_SIZE {
+            apply_pairs(Self::row_indices(row), self);
+        }
+        for col in 0..GRID_SIZE {
+            apply_pairs(Self::col_indices(col), self);
+        }
+        for box_row in 0..3 {
+            for box_col in 0..3 {
+                apply_pairs(Self::box_indices(box_row, box_col), self);
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::NakedPair);
+        }
+
+        progress
     }
 
     /// Finds hidden pairs - two numbers that can only go in two cells in a unit
     fn find_hidden_pairs(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        let mut apply_hidden_pairs = |indices: Vec<usize>, solver: &mut Self| {
+            for num1 in 1..=9 {
+                for num2 in (num1 + 1)..=9 {
+                    let positions_num1: Vec<usize> = indices
+                        .iter()
+                        .copied()
+                        .filter(|&index| {
+                            solver.board[index].is_none()
+                                && solver.candidates.has_candidate(index, num1)
+                        })
+                        .collect();
+                    let positions_num2: Vec<usize> = indices
+                        .iter()
+                        .copied()
+                        .filter(|&index| {
+                            solver.board[index].is_none()
+                                && solver.candidates.has_candidate(index, num2)
+                        })
+                        .collect();
+
+                    if positions_num1.len() == 2
+                        && positions_num2.len() == 2
+                        && positions_num1 == positions_num2
+                    {
+                        for &index in &positions_num1 {
+                            let existing = solver.candidates.get_candidates(index);
+                            for candidate in existing {
+                                if candidate != num1 && candidate != num2 {
+                                    solver.candidates.remove_candidate(index, candidate);
+                                    progress = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        for row in 0..GRID_SIZE {
+            apply_hidden_pairs(Self::row_indices(row), self);
+        }
+        for col in 0..GRID_SIZE {
+            apply_hidden_pairs(Self::col_indices(col), self);
+        }
+        for box_row in 0..3 {
+            for box_col in 0..3 {
+                apply_hidden_pairs(Self::box_indices(box_row, box_col), self);
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::HiddenPair);
+        }
+
+        progress
     }
 
     /// Finds box-line reduction patterns
     fn find_box_line_reduction(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        for row in 0..GRID_SIZE {
+            for num in 1..=9 {
+                let positions: Vec<usize> = Self::row_indices(row)
+                    .into_iter()
+                    .filter(|&index| {
+                        self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                    })
+                    .collect();
+
+                if positions.len() >= 2 {
+                    let box_col = positions
+                        .iter()
+                        .map(|&index| index_to_coords(index).1 / BOX_SIZE)
+                        .collect::<std::collections::HashSet<_>>();
+                    if box_col.len() == 1 {
+                        let target_box_col = *box_col.iter().next().unwrap();
+                        let box_row = row / BOX_SIZE;
+                        for index in Self::box_indices(box_row, target_box_col) {
+                            let (r, _) = index_to_coords(index);
+                            if r != row
+                                && self.board[index].is_none()
+                                && self.candidates.has_candidate(index, num)
+                            {
+                                self.candidates.remove_candidate(index, num);
+                                progress = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for col in 0..GRID_SIZE {
+            for num in 1..=9 {
+                let positions: Vec<usize> = Self::col_indices(col)
+                    .into_iter()
+                    .filter(|&index| {
+                        self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                    })
+                    .collect();
+
+                if positions.len() >= 2 {
+                    let box_row = positions
+                        .iter()
+                        .map(|&index| index_to_coords(index).0 / BOX_SIZE)
+                        .collect::<std::collections::HashSet<_>>();
+                    if box_row.len() == 1 {
+                        let target_box_row = *box_row.iter().next().unwrap();
+                        let box_col = col / BOX_SIZE;
+                        for index in Self::box_indices(target_box_row, box_col) {
+                            let (_, c) = index_to_coords(index);
+                            if c != col
+                                && self.board[index].is_none()
+                                && self.candidates.has_candidate(index, num)
+                            {
+                                self.candidates.remove_candidate(index, num);
+                                progress = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::BoxLineReduction);
+        }
+
+        progress
     }
 
     /// Finds pointing pairs patterns
     fn find_pointing_pairs(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        for box_row in 0..3 {
+            for box_col in 0..3 {
+                let indices = Self::box_indices(box_row, box_col);
+                for num in 1..=9 {
+                    let positions: Vec<usize> = indices
+                        .iter()
+                        .copied()
+                        .filter(|&index| {
+                            self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                        })
+                        .collect();
+
+                    if positions.len() >= 2 {
+                        let rows: std::collections::HashSet<usize> = positions
+                            .iter()
+                            .map(|&index| index_to_coords(index).0)
+                            .collect();
+                        let cols: std::collections::HashSet<usize> = positions
+                            .iter()
+                            .map(|&index| index_to_coords(index).1)
+                            .collect();
+
+                        if rows.len() == 1 {
+                            let row = *rows.iter().next().unwrap();
+                            for index in Self::row_indices(row) {
+                                let (_, col) = index_to_coords(index);
+                                if col / BOX_SIZE != box_col
+                                    && self.board[index].is_none()
+                                    && self.candidates.has_candidate(index, num)
+                                {
+                                    self.candidates.remove_candidate(index, num);
+                                    progress = true;
+                                }
+                            }
+                        }
+
+                        if cols.len() == 1 {
+                            let col = *cols.iter().next().unwrap();
+                            for index in Self::col_indices(col) {
+                                let (row, _) = index_to_coords(index);
+                                if row / BOX_SIZE != box_row
+                                    && self.board[index].is_none()
+                                    && self.candidates.has_candidate(index, num)
+                                {
+                                    self.candidates.remove_candidate(index, num);
+                                    progress = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::PointingPairs);
+        }
+
+        progress
     }
 
     /// Finds X-Wing patterns
     fn find_x_wing(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        for num in 1..=9 {
+            let mut row_candidates = Vec::new();
+            for row in 0..GRID_SIZE {
+                let cols: Vec<usize> = Self::row_indices(row)
+                    .into_iter()
+                    .filter(|&index| {
+                        self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                    })
+                    .map(|index| index_to_coords(index).1)
+                    .collect();
+                if cols.len() == 2 {
+                    row_candidates.push((row, cols));
+                }
+            }
+
+            for i in 0..row_candidates.len() {
+                for j in (i + 1)..row_candidates.len() {
+                    if row_candidates[i].1 == row_candidates[j].1 {
+                        let cols = &row_candidates[i].1;
+                        for row in 0..GRID_SIZE {
+                            if row != row_candidates[i].0 && row != row_candidates[j].0 {
+                                for &col in cols {
+                                    let index = coords_to_index(row, col);
+                                    if self.board[index].is_none()
+                                        && self.candidates.has_candidate(index, num)
+                                    {
+                                        self.candidates.remove_candidate(index, num);
+                                        progress = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let mut col_candidates = Vec::new();
+            for col in 0..GRID_SIZE {
+                let rows: Vec<usize> = Self::col_indices(col)
+                    .into_iter()
+                    .filter(|&index| {
+                        self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                    })
+                    .map(|index| index_to_coords(index).0)
+                    .collect();
+                if rows.len() == 2 {
+                    col_candidates.push((col, rows));
+                }
+            }
+
+            for i in 0..col_candidates.len() {
+                for j in (i + 1)..col_candidates.len() {
+                    if col_candidates[i].1 == col_candidates[j].1 {
+                        let rows = &col_candidates[i].1;
+                        for col in 0..GRID_SIZE {
+                            if col != col_candidates[i].0 && col != col_candidates[j].0 {
+                                for &row in rows {
+                                    let index = coords_to_index(row, col);
+                                    if self.board[index].is_none()
+                                        && self.candidates.has_candidate(index, num)
+                                    {
+                                        self.candidates.remove_candidate(index, num);
+                                        progress = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::XWing);
+        }
+
+        progress
     }
 
     /// Finds pointing triples patterns
@@ -333,14 +685,172 @@ impl HumanStyleSolver {
 
     /// Finds Swordfish patterns
     fn find_swordfish(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        for num in 1..=9 {
+            let mut row_candidates = Vec::new();
+            for row in 0..GRID_SIZE {
+                let cols: Vec<usize> = Self::row_indices(row)
+                    .into_iter()
+                    .filter(|&index| {
+                        self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                    })
+                    .map(|index| index_to_coords(index).1)
+                    .collect();
+                if (2..=3).contains(&cols.len()) {
+                    row_candidates.push((row, cols));
+                }
+            }
+
+            for i in 0..row_candidates.len() {
+                for j in (i + 1)..row_candidates.len() {
+                    for k in (j + 1)..row_candidates.len() {
+                        let mut cols = row_candidates[i].1.clone();
+                        cols.extend(&row_candidates[j].1);
+                        cols.extend(&row_candidates[k].1);
+                        cols.sort_unstable();
+                        cols.dedup();
+                        if cols.len() == 3 {
+                            for row in 0..GRID_SIZE {
+                                if row != row_candidates[i].0
+                                    && row != row_candidates[j].0
+                                    && row != row_candidates[k].0
+                                {
+                                    for &col in &cols {
+                                        let index = coords_to_index(row, col);
+                                        if self.board[index].is_none()
+                                            && self.candidates.has_candidate(index, num)
+                                        {
+                                            self.candidates.remove_candidate(index, num);
+                                            progress = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let mut col_candidates = Vec::new();
+            for col in 0..GRID_SIZE {
+                let rows: Vec<usize> = Self::col_indices(col)
+                    .into_iter()
+                    .filter(|&index| {
+                        self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                    })
+                    .map(|index| index_to_coords(index).0)
+                    .collect();
+                if (2..=3).contains(&rows.len()) {
+                    col_candidates.push((col, rows));
+                }
+            }
+
+            for i in 0..col_candidates.len() {
+                for j in (i + 1)..col_candidates.len() {
+                    for k in (j + 1)..col_candidates.len() {
+                        let mut rows = col_candidates[i].1.clone();
+                        rows.extend(&col_candidates[j].1);
+                        rows.extend(&col_candidates[k].1);
+                        rows.sort_unstable();
+                        rows.dedup();
+                        if rows.len() == 3 {
+                            for col in 0..GRID_SIZE {
+                                if col != col_candidates[i].0
+                                    && col != col_candidates[j].0
+                                    && col != col_candidates[k].0
+                                {
+                                    for &row in &rows {
+                                        let index = coords_to_index(row, col);
+                                        if self.board[index].is_none()
+                                            && self.candidates.has_candidate(index, num)
+                                        {
+                                            self.candidates.remove_candidate(index, num);
+                                            progress = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::Swordfish);
+        }
+
+        progress
     }
 
     /// Finds XY-Wing patterns
     fn find_xy_wing(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        for pivot in 0..BOARD_SIZE {
+            if self.board[pivot].is_some() || self.candidates.candidate_count(pivot) != 2 {
+                continue;
+            }
+            let pivot_candidates = self.candidates.get_candidates(pivot);
+            let pivot_a = pivot_candidates[0];
+            let pivot_b = pivot_candidates[1];
+
+            let pivot_peers = Self::peers(pivot);
+            for &wing1 in &pivot_peers {
+                if self.board[wing1].is_some() || self.candidates.candidate_count(wing1) != 2 {
+                    continue;
+                }
+                let wing1_candidates = self.candidates.get_candidates(wing1);
+                if !wing1_candidates.contains(&pivot_a) || wing1_candidates.contains(&pivot_b) {
+                    continue;
+                }
+                let wing1_z = *wing1_candidates
+                    .iter()
+                    .find(|&&num| num != pivot_a)
+                    .unwrap();
+
+                for &wing2 in &pivot_peers {
+                    if wing2 == wing1
+                        || self.board[wing2].is_some()
+                        || self.candidates.candidate_count(wing2) != 2
+                    {
+                        continue;
+                    }
+                    let wing2_candidates = self.candidates.get_candidates(wing2);
+                    if !wing2_candidates.contains(&pivot_b)
+                        || wing2_candidates.contains(&pivot_a)
+                    {
+                        continue;
+                    }
+                    let wing2_z = *wing2_candidates
+                        .iter()
+                        .find(|&&num| num != pivot_b)
+                        .unwrap();
+
+                    if wing1_z != wing2_z {
+                        continue;
+                    }
+
+                    let wing1_peers = Self::peers(wing1);
+                    let wing2_peers = Self::peers(wing2);
+                    for index in wing1_peers.iter().filter(|idx| wing2_peers.contains(idx)) {
+                        if self.board[*index].is_none()
+                            && self.candidates.has_candidate(*index, wing1_z)
+                        {
+                            self.candidates.remove_candidate(*index, wing1_z);
+                            progress = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::XYWing);
+        }
+
+        progress
     }
 
     /// Checks if the puzzle is completely solved
