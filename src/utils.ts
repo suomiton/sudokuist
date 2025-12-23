@@ -59,8 +59,8 @@ export function getShareParams(): { seed: number; difficulty: number } | null {
 	const s = Number(p.get("seed"));
 	const d = Number(p.get("difficulty"));
 
-	// Validate that seed is an integer and difficulty is between 1-9
-	return Number.isInteger(s) && d >= 1 && d <= 9
+	// Validate that seed is an integer and difficulty is between 1-5
+	return Number.isInteger(s) && d >= 1 && d <= 5
 		? { seed: s, difficulty: d }
 		: null;
 }

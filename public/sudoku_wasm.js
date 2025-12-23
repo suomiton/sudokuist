@@ -203,14 +203,14 @@ function getArrayU8FromWasm0(ptr, len) {
  * Generate a new Sudoku puzzle with the specified difficulty
  *
  * # Arguments
- * * `difficulty` - Difficulty level (0=Easy, 1=Medium, 2=Hard, 3=Expert)
+ * * `difficulty` - Difficulty level (1=VeryEasy, 2=Easy, 3=Medium, 4=Hard, 5=Expert)
  *
  * # Returns
  * A new puzzle as a flat array of 81 numbers (0 for empty cells)
  *
  * # JavaScript Example
  * ```javascript
- * const puzzle = generate_puzzle(1); // Generate medium difficulty
+ * const puzzle = generate_puzzle(3); // Generate medium difficulty
  * console.log("Generated puzzle:", puzzle);
  * ```
  * @param {number} difficulty
@@ -228,7 +228,7 @@ export function generate_puzzle(difficulty) {
  * Generate a puzzle with custom configuration
  *
  * # Arguments
- * * `difficulty` - Target difficulty level (0-3)
+ * * `difficulty` - Target difficulty level (1-5)
  * * `min_clues` - Minimum number of clues
  * * `max_clues` - Maximum number of clues
  * * `prefer_symmetry` - Whether to prefer symmetric patterns
@@ -495,7 +495,7 @@ function _assertBigInt(n) {
  * Create a new Sudoku game with specified difficulty and seed (legacy compatibility)
  *
  * # Arguments
- * * `difficulty` - Difficulty level (1=Easy, 2=Medium, 3=Hard, 4=Expert)
+ * * `difficulty` - Difficulty level (1=VeryEasy, 2=Easy, 3=Medium, 4=Hard, 5=Expert)
  * * `seed` - Seed for deterministic puzzle generation
  *
  * # Returns
