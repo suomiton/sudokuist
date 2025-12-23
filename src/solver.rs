@@ -921,6 +921,40 @@ impl HumanStyleSolver {
 mod tests {
     use super::*;
 
+    fn set_candidates(solver: &mut HumanStyleSolver, row: usize, col: usize, candidates: &[u8]) {
+        let index = coords_to_index(row, col);
+        for num in 1..=9 {
+            if !candidates.contains(&num) {
+                solver.candidates.remove_candidate(index, num);
+            }
+        }
+    }
+
+    fn retain_candidate_only_at(
+        solver: &mut HumanStyleSolver,
+        num: u8,
+        allowed_indices: &[usize],
+    ) {
+        for index in 0..BOARD_SIZE {
+            if !allowed_indices.contains(&index) {
+                solver.candidates.remove_candidate(index, num);
+            }
+        }
+    }
+
+    fn remove_candidate_from_row_except(
+        solver: &mut HumanStyleSolver,
+        row: usize,
+        num: u8,
+        allowed_cols: &[usize],
+    ) {
+        for col in 0..GRID_SIZE {
+            if !allowed_cols.contains(&col) {
+                solver.candidates.remove_candidate(coords_to_index(row, col), num);
+            }
+        }
+    }
+
     #[test]
     fn test_solver_creation() {
         let board = vec![None; BOARD_SIZE];
@@ -943,5 +977,156 @@ mod tests {
         let solver = HumanStyleSolver::new(&board);
         // Full board should have low branching factor
         assert_eq!(solver.calculate_branching_factor(), 1.0);
+    }
+
+    #[test]
+    fn test_naked_pairs_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        set_candidates(&mut solver, 2, 0, &[1, 2]);
+        set_candidates(&mut solver, 2, 1, &[1, 2]);
+        set_candidates(&mut solver, 2, 2, &[1, 2, 3]);
+
+        assert!(solver.find_naked_pairs());
+
+        let target = coords_to_index(2, 2);
+        assert_eq!(solver.candidates.get_candidates(target), vec![3]);
+        assert_eq!(solver.get_hardest_technique_used(), SolvingTechnique::NakedPair);
+    }
+
+    #[test]
+    fn test_hidden_pairs_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        remove_candidate_from_row_except(&mut solver, 1, 3, &[0, 1]);
+        remove_candidate_from_row_except(&mut solver, 1, 4, &[0, 1]);
+        set_candidates(&mut solver, 1, 0, &[3, 4, 5]);
+        set_candidates(&mut solver, 1, 1, &[3, 4, 6]);
+
+        assert!(solver.find_hidden_pairs());
+
+        let first = coords_to_index(1, 0);
+        let second = coords_to_index(1, 1);
+        assert_eq!(solver.candidates.get_candidates(first), vec![3, 4]);
+        assert_eq!(solver.candidates.get_candidates(second), vec![3, 4]);
+        assert_eq!(solver.get_hardest_technique_used(), SolvingTechnique::HiddenPair);
+    }
+
+    #[test]
+    fn test_box_line_reduction_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        remove_candidate_from_row_except(&mut solver, 0, 5, &[0, 1]);
+        let target = coords_to_index(1, 2);
+        assert!(solver.candidates.has_candidate(target, 5));
+
+        assert!(solver.find_box_line_reduction());
+
+        assert!(!solver.candidates.has_candidate(target, 5));
+        assert_eq!(
+            solver.get_hardest_technique_used(),
+            SolvingTechnique::BoxLineReduction
+        );
+    }
+
+    #[test]
+    fn test_pointing_pairs_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        set_candidates(&mut solver, 0, 0, &[6, 7]);
+        set_candidates(&mut solver, 0, 1, &[6, 8]);
+        for row in 0..BOX_SIZE {
+            for col in 0..BOX_SIZE {
+                if !(row == 0 && (col == 0 || col == 1)) {
+                    solver
+                        .candidates
+                        .remove_candidate(coords_to_index(row, col), 6);
+                }
+            }
+        }
+        let target = coords_to_index(0, 4);
+        assert!(solver.candidates.has_candidate(target, 6));
+
+        assert!(solver.find_pointing_pairs());
+
+        assert!(!solver.candidates.has_candidate(target, 6));
+        assert_eq!(
+            solver.get_hardest_technique_used(),
+            SolvingTechnique::PointingPairs
+        );
+    }
+
+    #[test]
+    fn test_x_wing_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        let allowed = vec![
+            coords_to_index(0, 1),
+            coords_to_index(0, 5),
+            coords_to_index(3, 1),
+            coords_to_index(3, 5),
+            coords_to_index(6, 1),
+        ];
+        retain_candidate_only_at(&mut solver, 7, &allowed);
+
+        let target = coords_to_index(6, 1);
+        assert!(solver.candidates.has_candidate(target, 7));
+
+        assert!(solver.find_x_wing());
+
+        assert!(!solver.candidates.has_candidate(target, 7));
+        assert_eq!(solver.get_hardest_technique_used(), SolvingTechnique::XWing);
+    }
+
+    #[test]
+    fn test_swordfish_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        let allowed = vec![
+            coords_to_index(0, 0),
+            coords_to_index(0, 3),
+            coords_to_index(0, 6),
+            coords_to_index(1, 0),
+            coords_to_index(1, 3),
+            coords_to_index(1, 6),
+            coords_to_index(2, 0),
+            coords_to_index(2, 3),
+            coords_to_index(2, 6),
+            coords_to_index(5, 3),
+        ];
+        retain_candidate_only_at(&mut solver, 8, &allowed);
+
+        let target = coords_to_index(5, 3);
+        assert!(solver.candidates.has_candidate(target, 8));
+
+        assert!(solver.find_swordfish());
+
+        assert!(!solver.candidates.has_candidate(target, 8));
+        assert_eq!(solver.get_hardest_technique_used(), SolvingTechnique::Swordfish);
+    }
+
+    #[test]
+    fn test_xy_wing_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        set_candidates(&mut solver, 0, 0, &[1, 2]);
+        set_candidates(&mut solver, 0, 4, &[1, 3]);
+        set_candidates(&mut solver, 4, 0, &[2, 3]);
+        set_candidates(&mut solver, 4, 4, &[3, 9]);
+
+        let target = coords_to_index(4, 4);
+        assert!(solver.candidates.has_candidate(target, 3));
+
+        assert!(solver.find_xy_wing());
+
+        assert!(!solver.candidates.has_candidate(target, 3));
+        assert_eq!(solver.get_hardest_technique_used(), SolvingTechnique::XYWing);
     }
 }
