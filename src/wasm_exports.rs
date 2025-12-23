@@ -13,7 +13,7 @@ use web_sys::console;
 use crate::difficulty::analyze_difficulty;
 use crate::generator::{GeneratorConfig, PuzzleGenerator};
 use crate::solver::HumanStyleSolver;
-use crate::types::{DifficultyLevel, SolvingTechnique, BOARD_SIZE};
+use crate::types::{DifficultyAnalysis, DifficultyLevel, SolvingTechnique, BOARD_SIZE};
 use crate::validator::{
     has_unique_solution, solve_board, validate_board as internal_validate_board,
 };
@@ -521,43 +521,153 @@ fn is_valid_placement_seeded(board: &[Option<u8>], row: usize, col: usize, num: 
 
 /// Create a puzzle from solved board with seeded randomization
 fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Vec<Option<u8>> {
-    // Use seeded approach to ensure reproducible puzzles
-    let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
-    let mut rng = SmallRng::seed_from_u64(seed.wrapping_add(difficulty as u64));
-
-    // Updated cells_to_remove to match modal descriptions and new difficulty analysis
-    let cells_to_remove = match difficulty {
-        1 => 36, // VeryEasy - leave 45 clues (matches modal "35-45 clues")
-        2 => 40, // Easy - leave 41 clues (matches modal "35-45 clues")
-        3 => 48, // Medium - leave 33 clues (matches modal "30-35 clues")
-        4 => 53, // Hard - leave 28 clues (matches modal "25-30 clues" but safer)
-        5 => 60, // Expert - leave 21 clues (matches modal "17-24 clues")
-        _ => 48, // Default to Medium
+    let difficulty_level = match difficulty {
+        1 => DifficultyLevel::VeryEasy,
+        2 => DifficultyLevel::Easy,
+        3 => DifficultyLevel::Medium,
+        4 => DifficultyLevel::Hard,
+        5 => DifficultyLevel::Expert,
+        _ => DifficultyLevel::Medium,
     };
+    let config = GeneratorConfig::for_difficulty(difficulty_level);
+    let generator = PuzzleGenerator::new(config.clone());
+    let base_seed = seed.wrapping_add(difficulty as u64);
 
-    let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
-    indices.shuffle(&mut rng);
+    let mut best_puzzle: Option<Vec<Option<u8>>> = None;
+    let mut best_score = f64::INFINITY;
 
-    let mut removed = 0;
-    for &index in &indices {
-        if removed >= cells_to_remove {
-            break;
+    for attempt in 0..config.max_attempts {
+        let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
+        let mut attempt_rng = SmallRng::seed_from_u64(base_seed.wrapping_add(attempt as u64));
+        let order = seeded_removal_order(&mut attempt_rng, config.prefer_symmetry);
+        let mut since_unique_check = 0;
+
+        for idx in order {
+            let saved = board[idx];
+            board[idx] = None;
+
+            let clue_count = board.iter().filter(|c| c.is_some()).count();
+            if clue_count < config.min_clues {
+                board[idx] = saved;
+                break;
+            }
+
+            let needs_unique_check =
+                since_unique_check >= 3 || clue_count <= config.min_clues + 2;
+            if needs_unique_check && !has_unique_solution(&board) {
+                board[idx] = saved;
+                since_unique_check = 0;
+                continue;
+            }
+
+            since_unique_check = if needs_unique_check {
+                0
+            } else {
+                since_unique_check + 1
+            };
         }
 
-        // Try removing this cell
-        let original = board[index];
-        board[index] = None;
+        if !has_unique_solution(&board) {
+            continue;
+        }
 
-        // Check if puzzle still has unique solution
-        if has_unique_solution(&board) {
-            removed += 1;
-        } else {
-            // Restore cell if removing it makes puzzle unsolvable or non-unique
-            board[index] = original;
+        let analysis = analyze_difficulty(&board);
+        let branching_factor = generator.calculate_branching_factor(&board);
+
+        if seeded_meets_constraints(&config, &board, &analysis, branching_factor) {
+            return board;
+        }
+
+        let clue_count = board.iter().filter(|c| c.is_some()).count();
+        let bf_diff = (branching_factor - config.target_branching_factor).abs();
+        let score = bf_diff + (clue_count as f64 - config.min_clues as f64).abs() * 0.1;
+        if score < best_score {
+            best_score = score;
+            best_puzzle = Some(board);
         }
     }
 
-    board
+    best_puzzle.unwrap_or_else(|| solved_board.iter().map(|&x| Some(x)).collect())
+}
+
+fn seeded_meets_constraints(
+    config: &GeneratorConfig,
+    puzzle: &[Option<u8>],
+    analysis: &DifficultyAnalysis,
+    branching_factor: f64,
+) -> bool {
+    let clue_count = puzzle.iter().filter(|c| c.is_some()).count();
+
+    if clue_count < config.min_clues || clue_count > config.max_clues {
+        return false;
+    }
+
+    if !seeded_difficulty_matches_target(config.target_difficulty, analysis) {
+        return false;
+    }
+
+    if branching_factor < config.min_branching_factor
+        || branching_factor > config.max_branching_factor
+    {
+        return false;
+    }
+
+    let bf_diff = (branching_factor - config.target_branching_factor).abs();
+    bf_diff <= config.branching_factor_tolerance
+}
+
+fn seeded_difficulty_matches_target(
+    target: DifficultyLevel,
+    analysis: &DifficultyAnalysis,
+) -> bool {
+    use SolvingTechnique::*;
+    match target {
+        DifficultyLevel::VeryEasy => analysis.hardest_technique <= HiddenSingle,
+        DifficultyLevel::Easy => analysis.hardest_technique <= HiddenSingle,
+        DifficultyLevel::Medium => analysis.hardest_technique <= BoxLineReduction,
+        DifficultyLevel::Hard => {
+            analysis.hardest_technique >= XWing && analysis.hardest_technique <= Swordfish
+        }
+        DifficultyLevel::Expert => analysis.hardest_technique >= XYWing,
+    }
+}
+
+fn seeded_removal_order(rng: &mut SmallRng, prefer_symmetry: bool) -> Vec<usize> {
+    let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
+
+    if prefer_symmetry {
+        let mut pairs = Vec::<(usize, usize)>::new();
+        let mut seen = vec![false; BOARD_SIZE];
+        for i in 0..BOARD_SIZE {
+            if seen[i] {
+                continue;
+            }
+            let s = seeded_symmetric_index(i);
+            if s != i && !seen[s] {
+                pairs.push((i, s));
+                seen[i] = true;
+                seen[s] = true;
+            } else {
+                pairs.push((i, i));
+                seen[i] = true;
+            }
+        }
+        pairs.shuffle(rng);
+        indices = pairs
+            .into_iter()
+            .flat_map(|(a, b)| if a == b { vec![a] } else { vec![a, b] })
+            .collect();
+    } else {
+        indices.shuffle(rng);
+    }
+
+    indices
+}
+
+fn seeded_symmetric_index(index: usize) -> usize {
+    let row = index / 9;
+    let col = index % 9;
+    (8 - row) * 9 + (8 - col)
 }
 
 /// Create a new Sudoku game with specified difficulty and seed (legacy compatibility)
