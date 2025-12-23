@@ -67,21 +67,17 @@ fn is_placement_valid_at_index(board: &[Option<u8>], index: usize, num: u8) -> b
 
 /// Checks if a puzzle has a unique solution
 ///
-/// Uses backtracking to attempt to solve the puzzle. This is a simplified
-/// uniqueness check that verifies the puzzle is solvable.
+/// Uses backtracking to count solutions, early-exiting once more than one
+/// solution is found.
 ///
 /// # Arguments
 /// * `board` - The puzzle board to check
 ///
 /// # Returns
-/// `true` if the puzzle has a solution (uniqueness not fully verified)
-///
-/// # Note
-/// This is a simplified implementation. A full uniqueness check would
-/// need to count all possible solutions, which is computationally expensive.
+/// `true` if the puzzle has exactly one solution
 pub fn has_unique_solution(board: &[Option<u8>]) -> bool {
     let mut test_board = board.to_vec();
-    solve_board(&mut test_board)
+    count_solutions(&mut test_board, 2) == 1
 }
 
 /// Solves a Sudoku board using backtracking algorithm
@@ -126,6 +122,66 @@ pub fn solve_board(board: &mut [Option<u8>]) -> bool {
             false
         }
     }
+}
+
+/// Counts the number of solutions for the given board (up to `limit`)
+///
+/// # Arguments
+/// * `board` - Mutable reference to the board to solve
+/// * `limit` - Maximum number of solutions to count before early exit
+///
+/// # Returns
+/// The number of solutions found, capped at `limit`
+fn count_solutions(board: &mut [Option<u8>], limit: usize) -> usize {
+    if limit == 0 {
+        return 0;
+    }
+
+    let mut best_index: Option<usize> = None;
+    let mut best_candidates: Vec<u8> = Vec::new();
+
+    for index in 0..BOARD_SIZE {
+        if board[index].is_some() {
+            continue;
+        }
+
+        let (row, col) = index_to_coords(index);
+        let mut candidates = Vec::new();
+
+        for num in 1..=9 {
+            if is_valid_placement(board, row, col, num) {
+                candidates.push(num);
+            }
+        }
+
+        if candidates.is_empty() {
+            return 0;
+        }
+
+        if best_index.is_none() || candidates.len() < best_candidates.len() {
+            best_index = Some(index);
+            best_candidates = candidates;
+            if best_candidates.len() == 1 {
+                break;
+            }
+        }
+    }
+
+    let Some(index) = best_index else {
+        return 1;
+    };
+
+    let mut count = 0;
+    for num in best_candidates {
+        board[index] = Some(num);
+        count += count_solutions(board, limit - count);
+        if count >= limit {
+            break;
+        }
+    }
+    board[index] = None;
+
+    count
 }
 
 /// Finds the index of the next empty cell in the board
@@ -213,5 +269,98 @@ mod tests {
 
         board[5] = None;
         assert_eq!(find_next_empty_cell(&board), Some(5));
+    }
+
+    #[test]
+    fn test_has_unique_solution_rejects_multiple_solutions() {
+        let mut board = vec![
+            Some(5),
+            Some(3),
+            Some(4),
+            Some(6),
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(1),
+            Some(2),
+            Some(6),
+            Some(7),
+            Some(2),
+            Some(1),
+            Some(9),
+            Some(5),
+            Some(3),
+            Some(4),
+            Some(8),
+            Some(1),
+            Some(9),
+            Some(8),
+            Some(3),
+            Some(4),
+            Some(2),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            Some(5),
+            Some(9),
+            Some(7),
+            Some(6),
+            Some(1),
+            Some(4),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(2),
+            Some(6),
+            Some(8),
+            Some(5),
+            Some(3),
+            Some(7),
+            Some(9),
+            Some(1),
+            Some(7),
+            Some(1),
+            Some(3),
+            Some(9),
+            Some(2),
+            Some(4),
+            Some(8),
+            Some(5),
+            Some(6),
+            Some(9),
+            Some(6),
+            Some(1),
+            Some(5),
+            Some(3),
+            Some(7),
+            Some(2),
+            Some(8),
+            Some(4),
+            Some(2),
+            Some(8),
+            Some(7),
+            Some(4),
+            Some(1),
+            Some(9),
+            Some(6),
+            Some(3),
+            Some(5),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(2),
+            Some(8),
+            Some(6),
+            Some(1),
+            Some(7),
+            Some(9),
+        ];
+
+        for index in [3usize, 4, 30, 31] {
+            board[index] = None;
+        }
+
+        assert!(!has_unique_solution(&board));
     }
 }
