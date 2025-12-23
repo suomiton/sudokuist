@@ -167,7 +167,7 @@ impl PuzzleGenerator {
                 break;
             }
 
-            // Periodic uniqueness check to avoid expensive operations
+            // Periodic uniqueness check (solution counting) to avoid expensive operations
             let needs_unique_check =
                 since_unique_check >= 3 || clue_count <= self.config.min_clues + 2;
             if needs_unique_check && !has_unique_solution(&puzzle) {
@@ -254,7 +254,7 @@ impl PuzzleGenerator {
         bf_diff <= self.config.branching_factor_tolerance
     }
 
-    /// Enhanced puzzle validation including branching factor
+    /// Enhanced puzzle validation including branching factor and uniqueness
     fn validate_puzzle_enhanced(&self, puzzle: &[Option<u8>]) -> bool {
         if !has_unique_solution(puzzle) {
             return false;

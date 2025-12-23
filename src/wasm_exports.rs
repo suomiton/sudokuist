@@ -188,7 +188,7 @@ pub fn validate_board(board: Vec<u8>) -> bool {
 /// Check if a puzzle has a unique solution
 ///
 /// This is important for puzzle quality - good Sudoku puzzles should have
-/// exactly one solution.
+/// exactly one solution. Uses a solution-counting backtracking routine.
 ///
 /// # Arguments
 /// * `board` - The puzzle to check (flat array of 81 numbers)
