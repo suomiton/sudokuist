@@ -136,6 +136,7 @@ pub fn generate_custom_puzzle(
         max_branching_factor: 4.0,
         target_branching_factor: 2.5,
         branching_factor_tolerance: 0.5,
+        unique_check_interval: 4,
     };
 
     let generator = PuzzleGenerator::new(config);
@@ -552,8 +553,8 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
                 break;
             }
 
-            let needs_unique_check =
-                since_unique_check >= 3 || clue_count <= config.min_clues + 2;
+            let needs_unique_check = since_unique_check >= config.unique_check_interval
+                || clue_count <= config.min_clues + 2;
             if needs_unique_check && !has_unique_solution(&board) {
                 board[idx] = saved;
                 since_unique_check = 0;

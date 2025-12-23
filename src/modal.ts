@@ -72,6 +72,61 @@ export class Modal {
 	}
 
 	/**
+	 * Show a loading modal with an indeterminate progress bar
+	 */
+	showLoading(title: string, message: string): void {
+		this.clearModalImmediate();
+
+		this.overlay = document.createElement("div");
+		this.overlay.className = "modal-overlay modal-overlay-visible";
+
+		this.modal = document.createElement("div");
+		this.modal.className = "modal-container modal-info modal-loading";
+
+		const content = document.createElement("div");
+		content.className = "modal-content";
+
+		const header = document.createElement("div");
+		header.className = "modal-header";
+
+		const modalTitle = document.createElement("h3");
+		modalTitle.className = "modal-title";
+		modalTitle.textContent = title;
+		header.appendChild(modalTitle);
+
+		const body = document.createElement("div");
+		body.className = "modal-body";
+
+		const text = document.createElement("p");
+		text.className = "modal-message";
+		text.textContent = message;
+		body.appendChild(text);
+
+		const progress = document.createElement("div");
+		progress.className = "modal-progress";
+
+		const progressBar = document.createElement("div");
+		progressBar.className = "modal-progress-bar";
+
+		progress.appendChild(progressBar);
+		body.appendChild(progress);
+
+		content.appendChild(header);
+		content.appendChild(body);
+		this.modal.appendChild(content);
+		this.overlay.appendChild(this.modal);
+
+		document.body.appendChild(this.overlay);
+		requestAnimationFrame(() => {
+			this.modal?.classList.add("modal-container-visible");
+		});
+	}
+
+	hideLoading(): void {
+		this.closeModal();
+	}
+
+	/**
 	 * Show a difficulty selection dialog
 	 */
 	selectDifficulty(): Promise<number | null> {
@@ -412,18 +467,30 @@ export class Modal {
 	private closeModal(): void {
 		if (!this.overlay) return;
 
+		const overlay = this.overlay;
+		const modal = this.modal;
+
 		// Animate out
-		this.overlay.classList.remove("modal-overlay-visible");
-		this.modal?.classList.remove("modal-container-visible");
+		overlay.classList.remove("modal-overlay-visible");
+		modal?.classList.remove("modal-container-visible");
 
 		// Remove from DOM after animation
 		setTimeout(() => {
-			if (this.overlay && this.overlay.parentNode) {
-				this.overlay.parentNode.removeChild(this.overlay);
+			if (overlay && overlay.parentNode) {
+				overlay.parentNode.removeChild(overlay);
 			}
-			this.overlay = null;
-			this.modal = null;
 		}, 300);
+
+		this.overlay = null;
+		this.modal = null;
+	}
+
+	private clearModalImmediate(): void {
+		if (this.overlay && this.overlay.parentNode) {
+			this.overlay.parentNode.removeChild(this.overlay);
+		}
+		this.overlay = null;
+		this.modal = null;
 	}
 }
 

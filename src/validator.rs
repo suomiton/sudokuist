@@ -137,8 +137,38 @@ fn count_solutions(board: &mut [Option<u8>], limit: usize) -> usize {
         return 0;
     }
 
+    let mut row_mask = [0u16; 9];
+    let mut col_mask = [0u16; 9];
+    let mut box_mask = [0u16; 9];
+
+    for index in 0..BOARD_SIZE {
+        if let Some(num) = board[index] {
+            let (row, col) = index_to_coords(index);
+            let box_idx = (row / 3) * 3 + (col / 3);
+            let bit = 1u16 << (num - 1);
+            row_mask[row] |= bit;
+            col_mask[col] |= bit;
+            box_mask[box_idx] |= bit;
+        }
+    }
+
+    count_solutions_with_masks(board, &mut row_mask, &mut col_mask, &mut box_mask, limit)
+}
+
+fn count_solutions_with_masks(
+    board: &mut [Option<u8>],
+    row_mask: &mut [u16; 9],
+    col_mask: &mut [u16; 9],
+    box_mask: &mut [u16; 9],
+    limit: usize,
+) -> usize {
+    if limit == 0 {
+        return 0;
+    }
+
     let mut best_index: Option<usize> = None;
-    let mut best_candidates: Vec<u8> = Vec::new();
+    let mut best_mask: u16 = 0;
+    let mut best_count = 10u32;
 
     for index in 0..BOARD_SIZE {
         if board[index].is_some() {
@@ -146,22 +176,20 @@ fn count_solutions(board: &mut [Option<u8>], limit: usize) -> usize {
         }
 
         let (row, col) = index_to_coords(index);
-        let mut candidates = Vec::new();
+        let box_idx = (row / 3) * 3 + (col / 3);
+        let used = row_mask[row] | col_mask[col] | box_mask[box_idx];
+        let available = (!used) & 0x1FF;
 
-        for num in 1..=9 {
-            if is_valid_placement(board, row, col, num) {
-                candidates.push(num);
-            }
-        }
-
-        if candidates.is_empty() {
+        let count = available.count_ones();
+        if count == 0 {
             return 0;
         }
 
-        if best_index.is_none() || candidates.len() < best_candidates.len() {
+        if count < best_count {
             best_index = Some(index);
-            best_candidates = candidates;
-            if best_candidates.len() == 1 {
+            best_mask = available;
+            best_count = count;
+            if count == 1 {
                 break;
             }
         }
@@ -171,14 +199,31 @@ fn count_solutions(board: &mut [Option<u8>], limit: usize) -> usize {
         return 1;
     };
 
+    let (row, col) = index_to_coords(index);
+    let box_idx = (row / 3) * 3 + (col / 3);
+
     let mut count = 0;
-    for num in best_candidates {
+    let mut mask = best_mask;
+    while mask != 0 {
+        let bit = mask & (!mask + 1);
+        let num = bit.trailing_zeros() as u8 + 1;
+        mask &= mask - 1;
+
         board[index] = Some(num);
-        count += count_solutions(board, limit - count);
+        row_mask[row] |= bit;
+        col_mask[col] |= bit;
+        box_mask[box_idx] |= bit;
+
+        count += count_solutions_with_masks(board, row_mask, col_mask, box_mask, limit - count);
         if count >= limit {
             break;
         }
+
+        row_mask[row] &= !bit;
+        col_mask[col] &= !bit;
+        box_mask[box_idx] &= !bit;
     }
+
     board[index] = None;
 
     count

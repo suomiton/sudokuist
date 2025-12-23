@@ -62,12 +62,19 @@ export class GameManager {
 
 		await this.db.saveGame(gameRecord);
 
-		// Generate board using WASM with seed
-		const gameBoard = wasm.createGameWithSeed(
-			difficulty,
-			BigInt(this.currentSeed)
-		);
-		this.boardState = gameBoard.map((val) => val ?? null);
+		modal.showLoading("Generating puzzle", "Building your Sudoku puzzle...");
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+
+		try {
+			// Generate board using WASM with seed
+			const gameBoard = wasm.createGameWithSeed(
+				difficulty,
+				BigInt(this.currentSeed)
+			);
+			this.boardState = gameBoard.map((val) => val ?? null);
+		} finally {
+			modal.hideLoading();
+		}
 
 		// Initialize notes state
 		this.notesState = new Array(81).fill(null).map(() => []);
@@ -620,8 +627,15 @@ export class GameManager {
 		await this.db.saveGame(gameRecord);
 
 		// Generate board using WASM with the provided seed
-		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
-		this.boardState = gameBoard.map((val) => val ?? null);
+		modal.showLoading("Generating puzzle", "Recreating your Sudoku puzzle...");
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+
+		try {
+			const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
+			this.boardState = gameBoard.map((val) => val ?? null);
+		} finally {
+			modal.hideLoading();
+		}
 
 		// Initialize notes state
 		this.notesState = new Array(81).fill(null).map(() => []);

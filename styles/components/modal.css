@@ -165,3 +165,42 @@
 .modal-confirmation .modal-body {
 	padding-top: var(--gutter-xl);
 }
+
+.modal-loading .modal-body {
+	padding-bottom: var(--gutter-xl);
+}
+
+.modal-progress {
+	position: relative;
+	height: 10px;
+	background: #e6e6e6;
+	border-radius: 999px;
+	overflow: hidden;
+	margin-top: var(--gutter-lg);
+}
+
+.modal-progress-bar {
+	position: absolute;
+	left: -40%;
+	width: 40%;
+	height: 100%;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		var(--color-primary),
+		transparent
+	);
+	animation: modal-progress-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes modal-progress-slide {
+	0% {
+		left: -40%;
+	}
+	50% {
+		left: 60%;
+	}
+	100% {
+		left: 140%;
+	}
+}
