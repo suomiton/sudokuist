@@ -58,9 +58,9 @@ impl GeneratorConfig {
                 cfg.min_clues = 40; // Very high clue count for simplest puzzles
                 cfg.max_clues = 50; // Even more clues than Easy
                 cfg.min_branching_factor = 1.0; // Minimal complexity
-                cfg.max_branching_factor = 1.7; // Lower than Easy range
-                cfg.target_branching_factor = 1.4; // Very low complexity target
-                cfg.branching_factor_tolerance = 0.2; // Tight tolerance for consistency
+                cfg.max_branching_factor = 1.8; // Lower than Easy range
+                cfg.target_branching_factor = 1.2; // Adjusted for post-basic-technique BF
+                cfg.branching_factor_tolerance = 0.4; // Allow variability after pruning
             }
             DifficultyLevel::Easy => {
                 cfg.min_clues = 34;
@@ -520,16 +520,16 @@ mod tests {
 
             // Should have controlled branching factor
             assert!(
-                branching_factor >= 1.0 && branching_factor <= 1.7,
-                "VeryEasy BF should be 1.0-1.7, got {:.2}",
+                branching_factor >= 1.0 && branching_factor <= 1.8,
+                "VeryEasy BF should be 1.0-1.8, got {:.2}",
                 branching_factor
             );
 
             // Should be close to target
-            let target_diff = (branching_factor - 1.4).abs();
+            let target_diff = (branching_factor - 1.2).abs();
             assert!(
-                target_diff <= 0.2,
-                "Should be close to target 1.4, got {:.2} (diff: {:.2})",
+                target_diff <= 0.4,
+                "Should be close to target 1.2, got {:.2} (diff: {:.2})",
                 branching_factor,
                 target_diff
             );
