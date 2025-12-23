@@ -130,6 +130,13 @@ impl HumanStyleSolver {
         self.find_naked_singles() || self.find_hidden_singles()
     }
 
+    /// Reduces the puzzle by repeatedly applying basic techniques
+    ///
+    /// This runs naked and hidden singles until no further progress is possible.
+    pub fn reduce_with_basic_techniques(&mut self) {
+        while self.apply_basic_techniques() {}
+    }
+
     /// Applies intermediate solving techniques
     ///
     /// # Returns
@@ -921,6 +928,99 @@ impl HumanStyleSolver {
 mod tests {
     use super::*;
 
+    const EASY_BRANCHING_FIXTURE: [Option<u8>; 81] = [
+        // Row 1
+        None,
+        None,
+        Some(5),
+        None,
+        Some(7),
+        None,
+        Some(1),
+        Some(6),
+        Some(3),
+        // Row 2
+        None,
+        None,
+        Some(6),
+        Some(1),
+        Some(5),
+        Some(4),
+        None,
+        None,
+        Some(2),
+        // Row 3
+        Some(9),
+        Some(1),
+        None,
+        Some(6),
+        None,
+        None,
+        Some(7),
+        None,
+        Some(4),
+        // Row 4
+        None,
+        None,
+        Some(4),
+        Some(3),
+        None,
+        Some(7),
+        None,
+        None,
+        Some(6),
+        // Row 5
+        None,
+        Some(9),
+        None,
+        Some(4),
+        None,
+        Some(6),
+        None,
+        Some(7),
+        None,
+        // Row 6
+        Some(6),
+        None,
+        None,
+        Some(2),
+        None,
+        Some(5),
+        Some(4),
+        None,
+        None,
+        // Row 7
+        Some(8),
+        None,
+        Some(9),
+        None,
+        None,
+        Some(1),
+        None,
+        Some(2),
+        Some(7),
+        // Row 8
+        Some(1),
+        None,
+        None,
+        Some(9),
+        Some(3),
+        Some(2),
+        Some(8),
+        None,
+        None,
+        // Row 9
+        Some(3),
+        Some(5),
+        Some(2),
+        None,
+        Some(4),
+        None,
+        Some(6),
+        None,
+        None,
+    ];
+
     fn set_candidates(solver: &mut HumanStyleSolver, row: usize, col: usize, candidates: &[u8]) {
         let index = coords_to_index(row, col);
         for num in 1..=9 {
@@ -977,6 +1077,29 @@ mod tests {
         let solver = HumanStyleSolver::new(&board);
         // Full board should have low branching factor
         assert_eq!(solver.calculate_branching_factor(), 1.0);
+    }
+
+    #[test]
+    fn test_branching_factor_reduction_with_basic_techniques() {
+        let mut solver = HumanStyleSolver::new(&EASY_BRANCHING_FIXTURE);
+        let before = solver.calculate_branching_factor();
+
+        solver.reduce_with_basic_techniques();
+        let after = solver.calculate_branching_factor();
+
+        println!("Branching factor before: {:.2}, after: {:.2}", before, after);
+
+        assert!(
+            after <= before,
+            "Expected branching factor to reduce or stay the same (before {:.2}, after {:.2})",
+            before,
+            after
+        );
+        assert!(
+            after >= 1.6 && after <= 2.2,
+            "Expected reduced branching factor in easy-tier range (1.6-2.2), got {:.2}",
+            after
+        );
     }
 
     #[test]
