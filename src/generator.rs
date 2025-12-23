@@ -55,12 +55,12 @@ impl GeneratorConfig {
 
         match difficulty {
             DifficultyLevel::VeryEasy => {
-                cfg.min_clues = 46; // Very high clue count for simplest puzzles
-                cfg.max_clues = 54; // Higher than Easy
+                cfg.min_clues = 44; // Very high clue count for simplest puzzles
+                cfg.max_clues = 52; // Higher than Easy
                 cfg.min_branching_factor = 1.0; // Minimal complexity
-                cfg.max_branching_factor = 1.6; // Lower than Easy range
-                cfg.target_branching_factor = 1.3; // Adjusted for post-basic-technique BF
-                cfg.branching_factor_tolerance = 0.3; // Allow variability after pruning
+                cfg.max_branching_factor = 1.7; // Lower than Easy range
+                cfg.target_branching_factor = 1.4; // Adjusted for post-basic-technique BF
+                cfg.branching_factor_tolerance = 0.4; // Allow variability after pruning
             }
             DifficultyLevel::Easy => {
                 cfg.min_clues = 40;
@@ -520,24 +520,24 @@ mod tests {
 
             // Should have controlled branching factor
             assert!(
-                branching_factor >= 1.0 && branching_factor <= 1.6,
-                "VeryEasy BF should be 1.0-1.6, got {:.2}",
+                branching_factor >= 1.0 && branching_factor <= 1.7,
+                "VeryEasy BF should be 1.0-1.7, got {:.2}",
                 branching_factor
             );
 
             // Should be close to target
-            let target_diff = (branching_factor - 1.3).abs();
+            let target_diff = (branching_factor - 1.4).abs();
             assert!(
-                target_diff <= 0.3,
-                "Should be close to target 1.3, got {:.2} (diff: {:.2})",
+                target_diff <= 0.4,
+                "Should be close to target 1.4, got {:.2} (diff: {:.2})",
                 branching_factor,
                 target_diff
             );
 
             // Should have high clue count
             assert!(
-                clue_count >= 46,
-                "VeryEasy should have >= 46 clues, got {}",
+                clue_count >= 44,
+                "VeryEasy should have >= 44 clues, got {}",
                 clue_count
             );
         } else {
