@@ -74,11 +74,11 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
     };
 
     // Heuristic based on clue count, candidate reduction, singles visibility, and complexity
-    if clue_count >= 50 || single_fill_ratio >= 0.70 || candidate_reduction_ratio >= 0.70 {
+    if clue_count >= 52 || single_fill_ratio >= 0.75 || candidate_reduction_ratio >= 0.75 {
         SolvingTechnique::NakedSingle
-    } else if clue_count >= 42 || single_fill_ratio >= 0.55 || candidate_reduction_ratio >= 0.55 {
+    } else if clue_count >= 40 || single_fill_ratio >= 0.55 || candidate_reduction_ratio >= 0.55 {
         SolvingTechnique::HiddenSingle
-    } else if clue_count >= 36 || single_fill_ratio >= 0.40 || candidate_reduction_ratio >= 0.42 {
+    } else if clue_count >= 34 || single_fill_ratio >= 0.38 || candidate_reduction_ratio >= 0.40 {
         SolvingTechnique::HiddenPair
     } else if clue_count >= 32 || single_fill_ratio >= 0.25 || candidate_reduction_ratio >= 0.30 {
         if complexity > 3.1 {
@@ -259,9 +259,9 @@ fn classify_difficulty_level(
 ) -> DifficultyLevel {
     // Use branching factor as a secondary classifier
     let bf_difficulty = match branching_factor {
-        bf if bf <= 1.7 => DifficultyLevel::VeryEasy,
-        bf if bf <= 2.2 => DifficultyLevel::Easy,
-        bf if bf <= 3.8 => DifficultyLevel::Medium,
+        bf if bf <= 1.6 => DifficultyLevel::VeryEasy,
+        bf if bf <= 2.1 => DifficultyLevel::Easy,
+        bf if bf <= 3.6 => DifficultyLevel::Medium,
         bf if bf <= 6.0 => DifficultyLevel::Hard,
         _ => DifficultyLevel::Expert,
     };
@@ -269,13 +269,19 @@ fn classify_difficulty_level(
     // Primary classification by technique
     let technique_difficulty = match hardest_technique {
         SolvingTechnique::NakedSingle => {
-            if branching_factor <= 1.7 {
+            if branching_factor <= 1.6 {
                 DifficultyLevel::VeryEasy
             } else {
                 DifficultyLevel::Easy
             }
         }
-        SolvingTechnique::HiddenSingle => DifficultyLevel::Easy,
+        SolvingTechnique::HiddenSingle => {
+            if branching_factor <= 1.6 {
+                DifficultyLevel::VeryEasy
+            } else {
+                DifficultyLevel::Easy
+            }
+        }
 
         SolvingTechnique::NakedPair | SolvingTechnique::HiddenPair => {
             if technique_count <= 5 && branching_factor <= 3.5 {
