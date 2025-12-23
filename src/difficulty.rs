@@ -28,9 +28,15 @@ pub fn analyze_difficulty(board: &[Option<u8>]) -> DifficultyAnalysis {
     let techniques_used = solver.get_techniques_used();
     let branching_factor = solver.calculate_branching_factor();
 
-    // If only basic techniques were found, use heuristic analysis for advanced puzzles
+    // If only basic techniques were found, use heuristic analysis but do not
+    // promote to advanced techniques without actual solver usage.
     let hardest_technique = if basic_technique <= SolvingTechnique::HiddenSingle {
-        analyze_difficulty_heuristic(board)
+        let heuristic = analyze_difficulty_heuristic(board);
+        if heuristic >= SolvingTechnique::XWing {
+            basic_technique
+        } else {
+            heuristic
+        }
     } else {
         basic_technique
     };
