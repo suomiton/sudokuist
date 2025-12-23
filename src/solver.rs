@@ -552,7 +552,7 @@ impl HumanStyleSolver {
                         })
                         .collect();
 
-                    if positions.len() >= 2 {
+                    if positions.len() == 2 {
                         let rows: std::collections::HashSet<usize> = positions
                             .iter()
                             .map(|&index| index_to_coords(index).0)
@@ -686,8 +686,67 @@ impl HumanStyleSolver {
 
     /// Finds pointing triples patterns
     fn find_pointing_triples(&mut self) -> bool {
-        // Implementation would go here
-        false
+        let mut progress = false;
+
+        for box_row in 0..3 {
+            for box_col in 0..3 {
+                let indices = Self::box_indices(box_row, box_col);
+                for num in 1..=9 {
+                    let positions: Vec<usize> = indices
+                        .iter()
+                        .copied()
+                        .filter(|&index| {
+                            self.board[index].is_none() && self.candidates.has_candidate(index, num)
+                        })
+                        .collect();
+
+                    if positions.len() == 3 {
+                        let rows: std::collections::HashSet<usize> = positions
+                            .iter()
+                            .map(|&index| index_to_coords(index).0)
+                            .collect();
+                        let cols: std::collections::HashSet<usize> = positions
+                            .iter()
+                            .map(|&index| index_to_coords(index).1)
+                            .collect();
+
+                        if rows.len() == 1 {
+                            let row = *rows.iter().next().unwrap();
+                            for index in Self::row_indices(row) {
+                                let (_, col) = index_to_coords(index);
+                                if col / BOX_SIZE != box_col
+                                    && self.board[index].is_none()
+                                    && self.candidates.has_candidate(index, num)
+                                {
+                                    self.candidates.remove_candidate(index, num);
+                                    progress = true;
+                                }
+                            }
+                        }
+
+                        if cols.len() == 1 {
+                            let col = *cols.iter().next().unwrap();
+                            for index in Self::col_indices(col) {
+                                let (row, _) = index_to_coords(index);
+                                if row / BOX_SIZE != box_row
+                                    && self.board[index].is_none()
+                                    && self.candidates.has_candidate(index, num)
+                                {
+                                    self.candidates.remove_candidate(index, num);
+                                    progress = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if progress {
+            self.record_technique_used(SolvingTechnique::PointingTriples);
+        }
+
+        progress
     }
 
     /// Finds Swordfish patterns
@@ -1180,6 +1239,36 @@ mod tests {
         assert_eq!(
             solver.get_hardest_technique_used(),
             SolvingTechnique::PointingPairs
+        );
+    }
+
+    #[test]
+    fn test_pointing_triples_technique() {
+        let board = vec![None; BOARD_SIZE];
+        let mut solver = HumanStyleSolver::new(&board);
+
+        set_candidates(&mut solver, 0, 0, &[4, 7]);
+        set_candidates(&mut solver, 0, 1, &[4, 8]);
+        set_candidates(&mut solver, 0, 2, &[4, 9]);
+        for row in 0..BOX_SIZE {
+            for col in 0..BOX_SIZE {
+                if row != 0 {
+                    solver
+                        .candidates
+                        .remove_candidate(coords_to_index(row, col), 4);
+                }
+            }
+        }
+
+        let target = coords_to_index(0, 4);
+        assert!(solver.candidates.has_candidate(target, 4));
+
+        assert!(solver.find_pointing_triples());
+
+        assert!(!solver.candidates.has_candidate(target, 4));
+        assert_eq!(
+            solver.get_hardest_technique_used(),
+            SolvingTechnique::PointingTriples
         );
     }
 

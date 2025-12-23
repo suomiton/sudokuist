@@ -37,7 +37,7 @@ pub fn analyze_difficulty(board: &[Option<u8>]) -> DifficultyAnalysis {
     // If only basic techniques were found, use heuristic analysis but do not
     // promote to advanced techniques without actual solver usage.
     let hardest_technique = if basic_technique <= SolvingTechnique::HiddenSingle {
-        let heuristic = analyze_difficulty_heuristic(board);
+        let heuristic = cap_to_implemented_techniques(analyze_difficulty_heuristic(board));
         if heuristic >= SolvingTechnique::XWing {
             basic_technique
         } else {
@@ -74,13 +74,20 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
     };
 
     // Heuristic based on clue count, candidate reduction, singles visibility, and complexity
-    if clue_count >= 52 || single_fill_ratio >= 0.75 || candidate_reduction_ratio >= 0.75 {
+    let technique = if clue_count >= 52
+        || single_fill_ratio >= 0.75
+        || candidate_reduction_ratio >= 0.75
+    {
         SolvingTechnique::NakedSingle
-    } else if clue_count >= 40 || single_fill_ratio >= 0.55 || candidate_reduction_ratio >= 0.55 {
+    } else if clue_count >= 40
+        || single_fill_ratio >= 0.55
+        || candidate_reduction_ratio >= 0.55
+    {
         SolvingTechnique::HiddenSingle
     } else if clue_count >= 34 || single_fill_ratio >= 0.38 || candidate_reduction_ratio >= 0.40 {
         SolvingTechnique::HiddenPair
-    } else if clue_count >= 32 || single_fill_ratio >= 0.25 || candidate_reduction_ratio >= 0.30 {
+    } else if clue_count >= 32 || single_fill_ratio >= 0.25 || candidate_reduction_ratio >= 0.30
+    {
         if complexity > 3.1 {
             SolvingTechnique::NakedPair
         } else {
@@ -138,6 +145,18 @@ fn analyze_difficulty_heuristic(board: &[Option<u8>]) -> SolvingTechnique {
 
             _ => SolvingTechnique::ForcingChain,
         }
+    };
+
+    cap_to_implemented_techniques(technique)
+}
+
+fn cap_to_implemented_techniques(technique: SolvingTechnique) -> SolvingTechnique {
+    match technique {
+        SolvingTechnique::Coloring => SolvingTechnique::Swordfish,
+        SolvingTechnique::XYChain | SolvingTechnique::ForcingChain | SolvingTechnique::TrialAndError => {
+            SolvingTechnique::XYWing
+        }
+        _ => technique,
     }
 }
 
@@ -504,5 +523,16 @@ mod tests {
         let medium_board = board_with_removed(&medium_removed);
         let medium_technique = analyze_difficulty_heuristic(&medium_board);
         assert_eq!(medium_technique, SolvingTechnique::HiddenPair);
+    }
+
+    #[test]
+    fn test_heuristic_caps_to_implemented_techniques() {
+        let mut board = vec![None; 81];
+        for i in 0..10 {
+            board[i] = Some(1);
+        }
+
+        let technique = analyze_difficulty_heuristic(&board);
+        assert_eq!(technique, SolvingTechnique::XYWing);
     }
 }
