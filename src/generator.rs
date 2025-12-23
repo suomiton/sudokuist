@@ -55,27 +55,27 @@ impl GeneratorConfig {
 
         match difficulty {
             DifficultyLevel::VeryEasy => {
-                cfg.min_clues = 40; // Very high clue count for simplest puzzles
-                cfg.max_clues = 50; // Even more clues than Easy
+                cfg.min_clues = 44; // Very high clue count for simplest puzzles
+                cfg.max_clues = 52; // Higher than Easy
                 cfg.min_branching_factor = 1.0; // Minimal complexity
-                cfg.max_branching_factor = 1.8; // Lower than Easy range
-                cfg.target_branching_factor = 1.2; // Adjusted for post-basic-technique BF
+                cfg.max_branching_factor = 1.7; // Lower than Easy range
+                cfg.target_branching_factor = 1.4; // Adjusted for post-basic-technique BF
                 cfg.branching_factor_tolerance = 0.4; // Allow variability after pruning
             }
             DifficultyLevel::Easy => {
-                cfg.min_clues = 34;
-                cfg.max_clues = 42;
-                cfg.min_branching_factor = 1.6; // Updated to match actual results
-                cfg.max_branching_factor = 2.2; // Updated based on observations
-                cfg.target_branching_factor = 1.9; // Updated to match actual average
+                cfg.min_clues = 40;
+                cfg.max_clues = 46;
+                cfg.min_branching_factor = 1.3; // Updated to keep basic techniques
+                cfg.max_branching_factor = 2.0; // Updated based on observations
+                cfg.target_branching_factor = 1.6; // Updated to match actual average
                 cfg.branching_factor_tolerance = 0.3;
             }
             DifficultyLevel::Medium => {
-                cfg.min_clues = 32; // Increased from 30 for easier puzzles
-                cfg.max_clues = 37; // Increased from 35 for more clues
-                cfg.min_branching_factor = 2.2; // Lowered from 2.7 to reduce complexity
-                cfg.max_branching_factor = 2.8; // Lowered from 3.2 to create gap with Hard
-                cfg.target_branching_factor = 2.5; // Lowered from 2.9 for easier solving
+                cfg.min_clues = 32; // Balanced for solvable, basic-technique puzzles
+                cfg.max_clues = 38; // Slightly higher for steadier solvability
+                cfg.min_branching_factor = 2.0; // Lowered to reduce complexity
+                cfg.max_branching_factor = 2.7; // Keeps distance from Hard range
+                cfg.target_branching_factor = 2.3; // Lowered for easier solving
                 cfg.branching_factor_tolerance = 0.4;
             }
             DifficultyLevel::Hard => {
@@ -270,7 +270,7 @@ impl PuzzleGenerator {
     fn difficulty_matches_target(&self, analysis: &DifficultyAnalysis) -> bool {
         use SolvingTechnique::*;
         match self.config.target_difficulty {
-            DifficultyLevel::VeryEasy => analysis.hardest_technique <= NakedSingle,
+            DifficultyLevel::VeryEasy => analysis.hardest_technique <= HiddenSingle,
             DifficultyLevel::Easy => analysis.hardest_technique <= HiddenSingle,
             DifficultyLevel::Medium => analysis.hardest_technique <= BoxLineReduction,
             DifficultyLevel::Hard => {
@@ -284,7 +284,7 @@ impl PuzzleGenerator {
     fn difficulty_overshoot(&self, analysis: &DifficultyAnalysis) -> bool {
         use SolvingTechnique::*;
         match self.config.target_difficulty {
-            DifficultyLevel::VeryEasy => analysis.hardest_technique > NakedSingle,
+            DifficultyLevel::VeryEasy => analysis.hardest_technique > HiddenSingle,
             DifficultyLevel::Easy => analysis.hardest_technique > HiddenSingle,
             DifficultyLevel::Medium => analysis.hardest_technique > BoxLineReduction,
             DifficultyLevel::Hard => analysis.hardest_technique > Swordfish,
@@ -451,16 +451,16 @@ mod tests {
 
             // Should have controlled branching factor
             assert!(
-                branching_factor >= 2.0 && branching_factor <= 3.5,
-                "Medium BF should be 2.0-3.5, got {:.2}",
+                branching_factor >= 2.0 && branching_factor <= 2.7,
+                "Medium BF should be 2.0-2.7, got {:.2}",
                 branching_factor
             );
 
             // Should be close to target
-            let target_diff = (branching_factor - 2.5).abs(); // Updated to match new target
+            let target_diff = (branching_factor - 2.3).abs(); // Updated to match new target
             assert!(
                 target_diff <= 0.4,
-                "Should be close to target 2.5, got {:.2} (diff: {:.2})", // Updated message
+                "Should be close to target 2.3, got {:.2} (diff: {:.2})", // Updated message
                 branching_factor,
                 target_diff
             );
@@ -520,24 +520,24 @@ mod tests {
 
             // Should have controlled branching factor
             assert!(
-                branching_factor >= 1.0 && branching_factor <= 1.8,
-                "VeryEasy BF should be 1.0-1.8, got {:.2}",
+                branching_factor >= 1.0 && branching_factor <= 1.7,
+                "VeryEasy BF should be 1.0-1.7, got {:.2}",
                 branching_factor
             );
 
             // Should be close to target
-            let target_diff = (branching_factor - 1.2).abs();
+            let target_diff = (branching_factor - 1.4).abs();
             assert!(
                 target_diff <= 0.4,
-                "Should be close to target 1.2, got {:.2} (diff: {:.2})",
+                "Should be close to target 1.4, got {:.2} (diff: {:.2})",
                 branching_factor,
                 target_diff
             );
 
             // Should have high clue count
             assert!(
-                clue_count >= 40,
-                "VeryEasy should have >= 40 clues, got {}",
+                clue_count >= 44,
+                "VeryEasy should have >= 44 clues, got {}",
                 clue_count
             );
         } else {
