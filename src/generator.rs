@@ -27,6 +27,9 @@ pub struct GeneratorConfig {
 
     // Tolerance for branching factor matching
     pub branching_factor_tolerance: f64,
+
+    // How many removals to skip before uniqueness checks
+    pub unique_check_interval: usize,
 }
 
 impl Default for GeneratorConfig {
@@ -43,6 +46,7 @@ impl Default for GeneratorConfig {
             max_branching_factor: 4.0,
             target_branching_factor: 3.0,
             branching_factor_tolerance: 0.5,
+            unique_check_interval: 3,
         }
     }
 }
@@ -61,6 +65,7 @@ impl GeneratorConfig {
                 cfg.max_branching_factor = 1.7; // Lower than Easy range
                 cfg.target_branching_factor = 1.4; // Adjusted for post-basic-technique BF
                 cfg.branching_factor_tolerance = 0.4; // Allow variability after pruning
+                cfg.unique_check_interval = 2;
             }
             DifficultyLevel::Easy => {
                 cfg.min_clues = 40;
@@ -69,6 +74,7 @@ impl GeneratorConfig {
                 cfg.max_branching_factor = 2.0; // Updated based on observations
                 cfg.target_branching_factor = 1.6; // Updated to match actual average
                 cfg.branching_factor_tolerance = 0.3;
+                cfg.unique_check_interval = 3;
             }
             DifficultyLevel::Medium => {
                 cfg.min_clues = 32; // Balanced for solvable, basic-technique puzzles
@@ -77,6 +83,7 @@ impl GeneratorConfig {
                 cfg.max_branching_factor = 2.7; // Keeps distance from Hard range
                 cfg.target_branching_factor = 2.3; // Lowered for easier solving
                 cfg.branching_factor_tolerance = 0.4;
+                cfg.unique_check_interval = 4;
             }
             DifficultyLevel::Hard => {
                 cfg.min_clues = 25;
@@ -86,6 +93,7 @@ impl GeneratorConfig {
                 cfg.target_branching_factor = 3.8; // Updated to match actual average
                 cfg.branching_factor_tolerance = 0.5;
                 cfg.max_attempts = 5_000;
+                cfg.unique_check_interval = 5;
             }
             DifficultyLevel::Expert => {
                 cfg.min_clues = 17;
@@ -95,6 +103,7 @@ impl GeneratorConfig {
                 cfg.target_branching_factor = 5.0; // Updated to match actual average
                 cfg.branching_factor_tolerance = 0.8;
                 cfg.max_attempts = 8_000;
+                cfg.unique_check_interval = 6;
             }
         }
         cfg
@@ -168,8 +177,8 @@ impl PuzzleGenerator {
             }
 
             // Periodic uniqueness check (solution counting) to avoid expensive operations
-            let needs_unique_check =
-                since_unique_check >= 3 || clue_count <= self.config.min_clues + 2;
+            let needs_unique_check = since_unique_check >= self.config.unique_check_interval
+                || clue_count <= self.config.min_clues + 2;
             if needs_unique_check && !has_unique_solution(&puzzle) {
                 puzzle[idx] = saved;
                 since_unique_check = 0;
