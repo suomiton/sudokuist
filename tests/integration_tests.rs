@@ -387,6 +387,30 @@ mod solver_tests {
             "Branching factor should be between 1 and 9"
         );
     }
+
+    #[test]
+    fn test_branching_factor_with_reductions_matches_analysis() {
+        let mut solver = HumanStyleSolver::new(&VALID_PUZZLE);
+        let before = solver.calculate_branching_factor();
+
+        loop {
+            if !solver.apply_basic_techniques() {
+                break;
+            }
+        }
+
+        let after = solver.calculate_branching_factor();
+        let analysis = analyze_difficulty(&VALID_PUZZLE);
+
+        assert!(
+            after <= before,
+            "Branching factor should not increase after basic reductions"
+        );
+        assert_eq!(
+            analysis.branching_factor, after,
+            "Difficulty analysis should match branching factor after reductions"
+        );
+    }
 }
 
 mod generator_tests {
