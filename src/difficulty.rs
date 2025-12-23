@@ -26,7 +26,13 @@ pub fn analyze_difficulty(board: &[Option<u8>]) -> DifficultyAnalysis {
 
     let basic_technique = solver.get_hardest_technique_used();
     let techniques_used = solver.get_techniques_used();
-    let branching_factor = solver.calculate_branching_factor();
+    let mut branching_solver = HumanStyleSolver::new(board);
+    loop {
+        if !branching_solver.apply_basic_techniques() {
+            break;
+        }
+    }
+    let branching_factor = branching_solver.calculate_branching_factor();
 
     // If only basic techniques were found, use heuristic analysis but do not
     // promote to advanced techniques without actual solver usage.
