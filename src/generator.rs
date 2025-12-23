@@ -214,7 +214,12 @@ impl PuzzleGenerator {
 
     /// Calculate branching factor for a puzzle state
     pub fn calculate_branching_factor(&self, puzzle: &[Option<u8>]) -> f64 {
-        let solver = HumanStyleSolver::new(puzzle);
+        let mut solver = HumanStyleSolver::new(puzzle);
+        loop {
+            if !solver.apply_basic_techniques() {
+                break;
+            }
+        }
         solver.calculate_branching_factor()
     }
 
