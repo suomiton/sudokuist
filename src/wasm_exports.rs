@@ -3,7 +3,7 @@
 //! This module provides the public interface that JavaScript can call
 //! to interact with the Sudoku solver and generator.
 
-use js_sys::Array;
+use js_sys::{Array, Function};
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
@@ -46,6 +46,20 @@ fn from_js_board(js_board: &[u8]) -> Vec<Option<u8>> {
         .iter()
         .map(|&cell| if cell == 0 { None } else { Some(cell) })
         .collect()
+}
+
+/// Register a JS callback to receive generation progress updates
+///
+/// Callback signature: (progress: number, stage: string) => void
+#[wasm_bindgen]
+pub fn register_progress_callback(callback: Function) {
+    crate::generator::set_generation_progress_callback(Some(callback));
+}
+
+/// Clear the registered generation progress callback
+#[wasm_bindgen]
+pub fn clear_progress_callback() {
+    crate::generator::set_generation_progress_callback(None);
 }
 
 /// Generate a new Sudoku puzzle with the specified difficulty
@@ -588,7 +602,94 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
         }
     }
 
-    best_puzzle.unwrap_or_else(|| solved_board.iter().map(|&x| Some(x)).collect())
+    let mut puzzle = best_puzzle.unwrap_or_else(|| solved_board.iter().map(|&x| Some(x)).collect());
+
+    // Safety net: ensure we don't return a fully filled board if constraints couldn't be met
+    enforce_clue_bounds_with_seed(
+        &mut puzzle,
+        &config,
+        base_seed
+            .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+            .wrapping_add(0xA5A5_5A5A),
+    );
+
+    puzzle
+}
+
+fn enforce_clue_bounds_with_seed(
+    puzzle: &mut Vec<Option<u8>>,
+    config: &GeneratorConfig,
+    seed: u64,
+) {
+    let mut clue_count = puzzle.iter().filter(|c| c.is_some()).count();
+
+    // If we're already within bounds and have blanks, leave the puzzle as-is
+    if clue_count < BOARD_SIZE && clue_count <= config.max_clues {
+        return;
+    }
+
+    let mut rng = SmallRng::seed_from_u64(seed);
+    let mut removal_order = seeded_removal_order(&mut rng, config.prefer_symmetry);
+    let mut since_unique_check = 0usize;
+
+    for idx in removal_order.drain(..) {
+        if clue_count <= config.max_clues {
+            break;
+        }
+        if puzzle[idx].is_none() {
+            continue;
+        }
+
+        let saved = puzzle[idx];
+        puzzle[idx] = None;
+        clue_count -= 1;
+
+        let needs_unique_check = since_unique_check >= config.unique_check_interval
+            || clue_count <= config.min_clues + 2;
+
+        let mut revert = clue_count < config.min_clues;
+        if !revert && needs_unique_check && !has_unique_solution(puzzle) {
+            revert = true;
+        }
+
+        if revert {
+            puzzle[idx] = saved;
+            clue_count += 1;
+            if needs_unique_check {
+                since_unique_check = 0;
+            }
+        } else {
+            since_unique_check = if needs_unique_check {
+                0
+            } else {
+                since_unique_check + 1
+            };
+        }
+    }
+
+    // If we still have too many clues, do a final deterministic trim pass
+    if clue_count > config.max_clues {
+        let mut indices: Vec<usize> = (0..BOARD_SIZE).collect();
+        indices.shuffle(&mut rng);
+
+        for idx in indices {
+            if clue_count <= config.max_clues {
+                break;
+            }
+            if puzzle[idx].is_none() {
+                continue;
+            }
+
+            let saved = puzzle[idx];
+            puzzle[idx] = None;
+            clue_count -= 1;
+
+            if clue_count < config.min_clues || !has_unique_solution(puzzle) {
+                puzzle[idx] = saved;
+                clue_count += 1;
+            }
+        }
+    }
 }
 
 fn seeded_meets_constraints(

@@ -4,11 +4,18 @@ use crate::difficulty::analyze_difficulty;
 use crate::solver::HumanStyleSolver;
 use crate::types::{DifficultyAnalysis, DifficultyLevel, SolvingTechnique, BOARD_SIZE};
 use crate::validator::has_unique_solution;
+use js_sys::Function;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 
 #[cfg(target_arch = "wasm32")]
 use web_sys;
+#[cfg(target_arch = "wasm32")]
+use {std::cell::RefCell, wasm_bindgen::JsValue};
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static PROGRESS_CALLBACK: RefCell<Option<Function>> = RefCell::new(None);
+}
 
 /*──────────────── CONFIG ────────────────*/
 
@@ -127,9 +134,16 @@ impl PuzzleGenerator {
 
     /// Generate a puzzle with fine-tuned branching factor control
     pub fn generate(&self) -> Option<Vec<Option<u8>>> {
+        report_progress(0.02, "Starting generator");
         for attempt in 0..self.config.max_attempts {
+            if attempt % 50 == 0 {
+                let pct = 0.02 + (attempt as f64 / self.config.max_attempts as f64) * 0.1;
+                report_progress(pct.min(0.12), "Searching puzzle seeds");
+            }
+
             if let Some(puzzle) = self.generate_attempt() {
                 if self.validate_puzzle_enhanced(&puzzle) {
+                    report_progress(0.98, "Validating uniqueness");
                     return Some(puzzle);
                 }
             }
@@ -151,7 +165,9 @@ impl PuzzleGenerator {
     }
 
     fn generate_attempt(&self) -> Option<Vec<Option<u8>>> {
+        report_progress(0.12, "Building solution");
         let solution = self.generate_complete_solution()?;
+        report_progress(0.2, "Carving clues");
         self.create_puzzle_with_branching_factor_control(&solution)
     }
 
@@ -166,7 +182,9 @@ impl PuzzleGenerator {
         let order = self.get_removal_order();
         let mut since_unique_check = 0;
 
-        for &idx in &order {
+        let total_steps = order.len().max(1);
+
+        for (step, &idx) in order.iter().enumerate() {
             let saved = puzzle[idx];
             puzzle[idx] = None;
 
@@ -174,6 +192,11 @@ impl PuzzleGenerator {
             let clue_count = puzzle.iter().filter(|c| c.is_some()).count();
             if clue_count < self.config.min_clues {
                 break;
+            }
+
+            if step % 6 == 0 {
+                let pct = 0.2 + (step as f64 / total_steps as f64) * 0.75;
+                report_progress(pct.min(0.95), "Carving clues");
             }
 
             // Periodic uniqueness check (solution counting) to avoid expensive operations
@@ -398,6 +421,35 @@ impl PuzzleGenerator {
         let row = index / 9;
         let col = index % 9;
         (8 - row) * 9 + (8 - col)
+    }
+}
+
+/*──────── PROGRESS HOOKS (wasm only) ─────*/
+
+#[cfg(target_arch = "wasm32")]
+pub fn set_generation_progress_callback(callback: Option<Function>) {
+    PROGRESS_CALLBACK.with(|cb| *cb.borrow_mut() = callback);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn set_generation_progress_callback(_callback: Option<Function>) {}
+
+fn report_progress(percent: f64, stage: &str) {
+    #[cfg(target_arch = "wasm32")]
+    PROGRESS_CALLBACK.with(|cb| {
+        if let Some(func) = cb.borrow().as_ref() {
+            let _ = func.call2(
+                &JsValue::NULL,
+                &JsValue::from_f64(percent),
+                &JsValue::from(stage),
+            );
+        }
+    });
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = percent;
+        let _ = stage;
     }
 }
 

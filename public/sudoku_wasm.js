@@ -194,6 +194,22 @@ function getDataViewMemory0() {
     }
     return cachedDataViewMemory0;
 }
+/**
+ * Register a JS callback to receive generation progress updates
+ *
+ * Callback signature: (progress: number, stage: string) => void
+ * @param {Function} callback
+ */
+export function register_progress_callback(callback) {
+    wasm.register_progress_callback(callback);
+}
+
+/**
+ * Clear the registered generation progress callback
+ */
+export function clear_progress_callback() {
+    wasm.clear_progress_callback();
+}
 
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
@@ -291,7 +307,7 @@ export function validate_board(board) {
  * Check if a puzzle has a unique solution
  *
  * This is important for puzzle quality - good Sudoku puzzles should have
- * exactly one solution.
+ * exactly one solution. Uses a solution-counting backtracking routine.
  *
  * # Arguments
  * * `board` - The puzzle to check (flat array of 81 numbers)
@@ -574,6 +590,10 @@ function __wbg_get_imports() {
     }, arguments) };
     imports.wbg.__wbg_call_7cccdd69e0791ae2 = function() { return handleError(function (arg0, arg1, arg2) {
         const ret = arg0.call(arg1, arg2);
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_call_833bed5770ea2041 = function() { return handleError(function (arg0, arg1, arg2, arg3) {
+        const ret = arg0.call(arg1, arg2, arg3);
         return ret;
     }, arguments) };
     imports.wbg.__wbg_crypto_574e78ad8b13b65f = function() { return logError(function (arg0) {

@@ -181,26 +181,9 @@
 
 .modal-progress-bar {
 	position: absolute;
-	left: -40%;
-	width: 40%;
+	left: 0;
+	width: 0%;
 	height: 100%;
-	background: linear-gradient(
-		90deg,
-		transparent,
-		var(--color-primary),
-		transparent
-	);
-	animation: modal-progress-slide 1.4s ease-in-out infinite;
-}
-
-@keyframes modal-progress-slide {
-	0% {
-		left: -40%;
-	}
-	50% {
-		left: 60%;
-	}
-	100% {
-		left: 140%;
-	}
+	background: var(--color-primary);
+	transition: width 0.25s ease;
 }

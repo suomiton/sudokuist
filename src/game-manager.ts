@@ -28,6 +28,11 @@ export class GameManager {
 	// Numpad properties
 	private selectedCellIndex: number | null = null;
 
+	// Generation worker (to avoid blocking the main thread)
+	private generationWorker: Worker | null = null;
+	private workerRequestId = 0;
+	private workerBusy = false;
+
 	constructor(db: DatabaseManager) {
 		this.db = db;
 		this.setupNumpad();
@@ -63,15 +68,18 @@ export class GameManager {
 		await this.db.saveGame(gameRecord);
 
 		modal.showLoading("Generating puzzle", "Building your Sudoku puzzle...");
-		await new Promise((resolve) => requestAnimationFrame(resolve));
+		modal.setLoadingProgress(5, "Preparing generator...");
+		await this.waitForLoadingFrame();
 
 		try {
-			// Generate board using WASM with seed
-			const gameBoard = wasm.createGameWithSeed(
+			const gameBoard = await this.generatePuzzleBoard(
 				difficulty,
-				BigInt(this.currentSeed)
+				this.currentSeed!,
+				(pct, stage) => modal.setLoadingProgress(pct, stage)
 			);
-			this.boardState = gameBoard.map((val) => val ?? null);
+			this.boardState = gameBoard.map((val: number | undefined) =>
+				val ?? null
+			);
 		} finally {
 			modal.hideLoading();
 		}
@@ -484,7 +492,7 @@ export class GameManager {
 		this.hintsUsed = 0;
 
 		// Generate puzzle using seed - this will always produce the same puzzle
-		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
+		const gameBoard = await this.generatePuzzleBoard(difficulty, seed);
 		this.boardState = gameBoard.map((val) => val ?? null);
 
 		// Initialize notes state
@@ -628,11 +636,18 @@ export class GameManager {
 
 		// Generate board using WASM with the provided seed
 		modal.showLoading("Generating puzzle", "Recreating your Sudoku puzzle...");
-		await new Promise((resolve) => requestAnimationFrame(resolve));
+		modal.setLoadingProgress(5, "Preparing generator...");
+		await this.waitForLoadingFrame();
 
 		try {
-			const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
-			this.boardState = gameBoard.map((val) => val ?? null);
+			const gameBoard = await this.generatePuzzleBoard(
+				difficulty,
+				seed,
+				(pct, stage) => modal.setLoadingProgress(pct, stage)
+			);
+			this.boardState = gameBoard.map((val: number | undefined) =>
+				val ?? null
+			);
 		} finally {
 			modal.hideLoading();
 		}
@@ -714,6 +729,183 @@ export class GameManager {
 			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 
 		timerDisplay.textContent = formatted;
+	}
+
+	/**
+	 * Yield to the browser so the loading modal renders before heavy work
+	 */
+	private async waitForLoadingFrame(): Promise<void> {
+		// Two frames gives the overlay time to paint before blocking WASM work
+		await new Promise<void>((resolve) =>
+			requestAnimationFrame(() => resolve())
+		);
+		await new Promise<void>((resolve) =>
+			requestAnimationFrame(() => resolve())
+		);
+	}
+
+	/**
+	 * Generate a puzzle without blocking the UI by offloading to a worker when available.
+	 * Falls back to main-thread generation with progress updates if the worker cannot be used.
+	 */
+	private async generatePuzzleBoard(
+		difficulty: number,
+		seed: number,
+		onProgress?: (pct: number, stage?: string) => void
+	): Promise<(number | undefined)[]> {
+		const worker = this.ensureGenerationWorker();
+		if (worker && !this.workerBusy) {
+			try {
+				return await this.generatePuzzleWithWorker(
+					worker,
+					difficulty,
+					seed,
+					onProgress
+				);
+			} catch (err) {
+				console.warn("Worker generation failed, falling back", err);
+			}
+		}
+
+		return this.generatePuzzleInMainThread(difficulty, seed, onProgress);
+	}
+
+	private ensureGenerationWorker(): Worker | null {
+		if (this.generationWorker) return this.generationWorker;
+
+		try {
+			this.generationWorker = new Worker(
+				new URL("./generation-worker.ts", import.meta.url),
+				{ type: "module" }
+			);
+			return this.generationWorker;
+		} catch (err) {
+			console.warn("Generation worker unavailable, using main thread", err);
+			this.generationWorker = null;
+			return null;
+		}
+	}
+
+	private async generatePuzzleWithWorker(
+		worker: Worker,
+		difficulty: number,
+		seed: number,
+		onProgress?: (pct: number, stage?: string) => void
+	): Promise<(number | undefined)[]> {
+		this.workerBusy = true;
+		const requestId = ++this.workerRequestId;
+		onProgress?.(5, "Preparing generator...");
+
+		return new Promise<(number | undefined)[]>((resolve, reject) => {
+			const handleMessage = (event: MessageEvent) => {
+				const data = event.data || {};
+				if (data.id !== requestId) return;
+
+				if (data.type === "progress") {
+					if (onProgress) {
+						const pct = Math.max(
+							0,
+							Math.min(1, Number(data.progress ?? 0))
+						);
+						onProgress(pct * 100, data.stage);
+					}
+					return;
+				}
+
+				if (data.type === "result") {
+					cleanup();
+					onProgress?.(100);
+					resolve((data.board as (number | undefined)[]) ?? []);
+					return;
+				}
+
+				if (data.type === "error") {
+					cleanup();
+					reject(
+						new Error(
+							data.message || "Puzzle generation failed in worker"
+						)
+					);
+					return;
+				}
+			};
+
+			const handleError = (err: ErrorEvent) => {
+				cleanup();
+				reject(err.error || err.message || err);
+			};
+
+			const cleanup = () => {
+				worker.removeEventListener("message", handleMessage);
+				worker.removeEventListener("error", handleError);
+				this.workerBusy = false;
+			};
+
+			worker.addEventListener("message", handleMessage);
+			worker.addEventListener("error", handleError);
+			worker.postMessage({ id: requestId, type: "generate", difficulty, seed });
+		}).finally(() => {
+			this.workerBusy = false;
+		});
+	}
+
+	private async generatePuzzleInMainThread(
+		difficulty: number,
+		seed: number,
+		onProgress?: (pct: number, stage?: string) => void
+	): Promise<(number | undefined)[]> {
+		const cleanupProgress = onProgress
+			? this.setupGenerationProgress(onProgress)
+			: () => {};
+
+		try {
+			const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));
+			return gameBoard;
+		} finally {
+			cleanupProgress();
+		}
+	}
+
+	/**
+	 * Wire up WASM progress callbacks (if available). Returns a cleanup function.
+	 */
+	private setupGenerationProgress(
+		sink: (pct: number, stage?: string) => void
+	): () => void {
+		const wasmModule = (window as any).wasm;
+		const canReport =
+			wasmModule &&
+			typeof wasmModule.register_progress_callback === "function" &&
+			typeof wasmModule.clear_progress_callback === "function";
+
+		if (!canReport) {
+			// Fallback: gently animate progress so the bar is not empty
+			let pct = 5;
+			sink(pct);
+			const timer = window.setInterval(() => {
+				pct = Math.min(95, pct + 5);
+				sink(pct);
+			}, 400);
+			return () => {
+				clearInterval(timer);
+				sink(100);
+			};
+		}
+
+		const progressHandler = (progress: number, stage?: string) => {
+			const pct = Math.max(0, Math.min(1, Number(progress))) * 100;
+			sink(pct, stage);
+		};
+
+		wasmModule.register_progress_callback(progressHandler);
+		return () => {
+			try {
+				wasmModule.clear_progress_callback();
+				sink(100);
+			} catch (err) {
+				console.error("Failed to clear progress callback", err);
+			}
+		};
 	}
 
 	/**

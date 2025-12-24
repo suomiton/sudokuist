@@ -16,6 +16,8 @@ export interface ModalConfig {
 export class Modal {
 	private overlay: HTMLElement | null = null;
 	private modal: HTMLElement | null = null;
+	private progressBar: HTMLElement | null = null;
+	private progressMessage: HTMLElement | null = null;
 
 	/**
 	 * Show a modal dialog
@@ -101,12 +103,15 @@ export class Modal {
 		text.className = "modal-message";
 		text.textContent = message;
 		body.appendChild(text);
+		this.progressMessage = text;
 
 		const progress = document.createElement("div");
 		progress.className = "modal-progress";
 
 		const progressBar = document.createElement("div");
 		progressBar.className = "modal-progress-bar";
+		progressBar.style.width = "0%";
+		this.progressBar = progressBar;
 
 		progress.appendChild(progressBar);
 		body.appendChild(progress);
@@ -124,6 +129,17 @@ export class Modal {
 
 	hideLoading(): void {
 		this.closeModal();
+	}
+
+	setLoadingProgress(percent: number, stage?: string): void {
+		if (this.progressBar) {
+			const clamped = Math.max(0, Math.min(100, percent));
+			this.progressBar.style.width = `${clamped}%`;
+		}
+
+		if (stage && this.progressMessage) {
+			this.progressMessage.textContent = stage;
+		}
 	}
 
 	/**
@@ -483,6 +499,8 @@ export class Modal {
 
 		this.overlay = null;
 		this.modal = null;
+		this.progressBar = null;
+		this.progressMessage = null;
 	}
 
 	private clearModalImmediate(): void {
@@ -491,6 +509,8 @@ export class Modal {
 		}
 		this.overlay = null;
 		this.modal = null;
+		this.progressBar = null;
+		this.progressMessage = null;
 	}
 }
 
