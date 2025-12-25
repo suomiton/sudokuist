@@ -220,6 +220,7 @@ impl PuzzleGenerator {
         let mut best_puzzle: Option<Vec<Option<u8>>> = None;
         let mut best_score = f64::INFINITY;
         let mut best_clue_count: Option<usize> = None;
+        let mut clue_count = BOARD_SIZE;
         let order = self.get_removal_order();
         let mut since_unique_check = 0;
         let removal_target = (BOARD_SIZE - self.config.min_clues).max(1);
@@ -227,9 +228,11 @@ impl PuzzleGenerator {
         for (step, &idx) in order.iter().enumerate() {
             let saved = puzzle[idx];
             puzzle[idx] = None;
+            if saved.is_some() {
+                clue_count -= 1;
+            }
 
             // Basic constraints
-            let clue_count = puzzle.iter().filter(|c| c.is_some()).count();
             if clue_count < self.config.min_clues {
                 break;
             }
@@ -247,6 +250,9 @@ impl PuzzleGenerator {
                 || clue_count <= self.config.min_clues + 2;
             if needs_unique_check && !has_unique_solution(&puzzle) {
                 puzzle[idx] = saved;
+                if saved.is_some() {
+                    clue_count += 1;
+                }
                 since_unique_check = 0;
                 continue;
             }
@@ -255,6 +261,12 @@ impl PuzzleGenerator {
             } else {
                 since_unique_check + 1
             };
+
+            // Skip expensive analysis on every removal; sample periodically unless near min clues
+            let near_min = clue_count <= self.config.min_clues + 3;
+            if !near_min && step % 3 != 0 {
+                continue;
+            }
 
             // Calculate branching factor and difficulty
             let branching_factor = self.calculate_branching_factor(&puzzle);
@@ -311,6 +323,9 @@ impl PuzzleGenerator {
             // Don't continue if difficulty is too high
             if self.difficulty_overshoot(&analysis) {
                 puzzle[idx] = saved;
+                if saved.is_some() {
+                    clue_count += 1;
+                }
                 continue;
             }
         }

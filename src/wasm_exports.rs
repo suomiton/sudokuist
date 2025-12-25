@@ -566,6 +566,7 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
     let mut best_puzzle: Option<Vec<Option<u8>>> = None;
     let mut best_score = f64::INFINITY;
     let mut best_clue_count: Option<usize> = None;
+    let mut clue_count = BOARD_SIZE;
     let removal_target = (BOARD_SIZE - config.min_clues).max(1);
 
     for attempt in 0..config.max_attempts {
@@ -594,9 +595,14 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
         for (step, idx) in order.into_iter().enumerate() {
             let saved = board[idx];
             board[idx] = None;
+            if saved.is_some() {
+                clue_count -= 1;
+            }
 
-            let clue_count = board.iter().filter(|c| c.is_some()).count();
             if clue_count < config.min_clues {
+                if saved.is_some() {
+                    clue_count += 1;
+                }
                 board[idx] = saved;
                 break;
             }
@@ -612,6 +618,9 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
                 || clue_count <= config.min_clues + 2;
             if needs_unique_check && !has_unique_solution(&board) {
                 board[idx] = saved;
+                if saved.is_some() {
+                    clue_count += 1;
+                }
                 since_unique_check = 0;
                 continue;
             }

@@ -75,7 +75,7 @@ export class GameManager {
 			const gameBoard = await this.generatePuzzleBoard(
 				difficulty,
 				this.currentSeed!,
-				(pct, stage, meta) => {
+				(pct: number, stage?: string, meta?: any) => {
 					modal.setLoadingProgress(pct, stage);
 					modal.setLoadingDetails(this.formatProgressDetails(meta));
 				}
@@ -646,7 +646,7 @@ export class GameManager {
 			const gameBoard = await this.generatePuzzleBoard(
 				difficulty,
 				seed,
-				(pct, stage, meta) => {
+				(pct: number, stage?: string, meta?: any) => {
 					modal.setLoadingProgress(pct, stage);
 					modal.setLoadingDetails(this.formatProgressDetails(meta));
 				}

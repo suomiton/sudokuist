@@ -6,9 +6,9 @@ let wasmReady: Promise<void> | null = null;
 
 async function ensureWasm(): Promise<void> {
 	if (!wasmReady) {
-		wasmReady = initWasm();
+		wasmReady = initWasm().then(() => {});
 	}
-	return wasmReady;
+	return wasmReady || Promise.resolve();
 }
 
 self.onmessage = async (event: MessageEvent) => {
