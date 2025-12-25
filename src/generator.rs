@@ -5,16 +5,28 @@ use crate::solver::HumanStyleSolver;
 use crate::types::{DifficultyAnalysis, DifficultyLevel, SolvingTechnique, BOARD_SIZE};
 use crate::validator::has_unique_solution;
 use js_sys::Function;
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Object, Reflect};
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
+use wasm_bindgen::JsValue;
 
 #[cfg(target_arch = "wasm32")]
 use web_sys;
 #[cfg(target_arch = "wasm32")]
-use {std::cell::RefCell, wasm_bindgen::JsValue};
+use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
 thread_local! {
     static PROGRESS_CALLBACK: RefCell<Option<Function>> = RefCell::new(None);
+    static LAST_PROGRESS: RefCell<f64> = RefCell::new(0.0);
+}
+
+#[derive(Clone, Debug)]
+pub struct ProgressMeta {
+    pub attempt: Option<u32>,
+    pub max_attempts: Option<u32>,
+    pub best_score: Option<f64>,
+    pub best_clue_count: Option<usize>,
 }
 
 /*──────────────── CONFIG ────────────────*/
@@ -99,7 +111,7 @@ impl GeneratorConfig {
                 cfg.max_branching_factor = 4.5; // Updated based on observed range
                 cfg.target_branching_factor = 3.8; // Updated to match actual average
                 cfg.branching_factor_tolerance = 0.5;
-                cfg.max_attempts = 5_000;
+                cfg.max_attempts = 2_500; // Lowered to speed up generation
                 cfg.unique_check_interval = 5;
             }
             DifficultyLevel::Expert => {
@@ -109,7 +121,7 @@ impl GeneratorConfig {
                 cfg.max_branching_factor = 6.0; // Updated based on observed range
                 cfg.target_branching_factor = 5.0; // Updated to match actual average
                 cfg.branching_factor_tolerance = 0.8;
-                cfg.max_attempts = 8_000;
+                cfg.max_attempts = 4_000; // Lowered to speed up generation
                 cfg.unique_check_interval = 6;
             }
         }
@@ -141,11 +153,38 @@ impl PuzzleGenerator {
                 report_progress(pct.min(0.12), "Searching puzzle seeds");
             }
 
-            if let Some(puzzle) = self.generate_attempt() {
+            if attempt % 5 == 0 {
+                report_progress_with_meta(
+                    search_progress(attempt, self.config.max_attempts),
+                    "Evaluating candidate puzzles",
+                    Some(ProgressMeta {
+                        attempt: Some(attempt),
+                        max_attempts: Some(self.config.max_attempts),
+                        best_score: None,
+                        best_clue_count: None,
+                    }),
+                );
+            }
+
+            if let Some(puzzle) = self.generate_attempt(attempt) {
                 if self.validate_puzzle_enhanced(&puzzle) {
                     report_progress(0.98, "Validating uniqueness");
                     return Some(puzzle);
                 }
+            }
+
+            // Surface long-running search progress beyond carving
+            if attempt % 25 == 0 {
+                report_progress_with_meta(
+                    search_progress(attempt, self.config.max_attempts),
+                    "Evaluating candidate puzzles",
+                    Some(ProgressMeta {
+                        attempt: Some(attempt),
+                        max_attempts: Some(self.config.max_attempts),
+                        best_score: None,
+                        best_clue_count: None,
+                    }),
+                );
             }
 
             #[cfg(target_arch = "wasm32")]
@@ -164,25 +203,26 @@ impl PuzzleGenerator {
         None
     }
 
-    fn generate_attempt(&self) -> Option<Vec<Option<u8>>> {
+    fn generate_attempt(&self, attempt: u32) -> Option<Vec<Option<u8>>> {
         report_progress(0.12, "Building solution");
         let solution = self.generate_complete_solution()?;
         report_progress(0.2, "Carving clues");
-        self.create_puzzle_with_branching_factor_control(&solution)
+        self.create_puzzle_with_branching_factor_control(&solution, attempt)
     }
 
     /// Enhanced puzzle creation with branching factor monitoring
     fn create_puzzle_with_branching_factor_control(
         &self,
         solution: &[Option<u8>],
+        attempt: u32,
     ) -> Option<Vec<Option<u8>>> {
         let mut puzzle = solution.to_vec();
         let mut best_puzzle: Option<Vec<Option<u8>>> = None;
         let mut best_score = f64::INFINITY;
+        let mut best_clue_count: Option<usize> = None;
         let order = self.get_removal_order();
         let mut since_unique_check = 0;
-
-        let total_steps = order.len().max(1);
+        let removal_target = (BOARD_SIZE - self.config.min_clues).max(1);
 
         for (step, &idx) in order.iter().enumerate() {
             let saved = puzzle[idx];
@@ -194,9 +234,12 @@ impl PuzzleGenerator {
                 break;
             }
 
-            if step % 6 == 0 {
-                let pct = 0.2 + (step as f64 / total_steps as f64) * 0.75;
-                report_progress(pct.min(0.95), "Carving clues");
+            if step % 3 == 0 {
+                let removed = BOARD_SIZE.saturating_sub(clue_count);
+                let removal_fraction = (removed as f64 / removal_target as f64).min(1.0);
+                // Allocate less progress to carving so later checks visibly advance
+                let pct = 0.2 + removal_fraction * 0.4; // max ~0.6
+                report_progress(pct.min(0.6), "Carving clues");
             }
 
             // Periodic uniqueness check (solution counting) to avoid expensive operations
@@ -226,10 +269,41 @@ impl PuzzleGenerator {
                 if score < best_score {
                     best_score = score;
                     best_puzzle = Some(puzzle.clone());
+                    best_clue_count = Some(clue_count);
+                    report_progress_with_meta(
+                        search_progress(attempt, self.config.max_attempts),
+                        "Evaluating candidate puzzles",
+                        Some(ProgressMeta {
+                            attempt: Some(attempt),
+                            max_attempts: Some(self.config.max_attempts),
+                            best_score: Some(best_score),
+                            best_clue_count: best_clue_count,
+                        }),
+                    );
                 }
 
                 // If we're very close to target, return immediately
                 if bf_diff <= self.config.branching_factor_tolerance * 0.5 {
+                    report_progress_with_meta(
+                        0.8,
+                        "Validating uniqueness",
+                        Some(ProgressMeta {
+                            attempt: Some(attempt),
+                            max_attempts: Some(self.config.max_attempts),
+                            best_score: Some(best_score),
+                            best_clue_count: best_clue_count,
+                        }),
+                    );
+                    report_progress_with_meta(
+                        0.9,
+                        "Analyzing difficulty",
+                        Some(ProgressMeta {
+                            attempt: Some(attempt),
+                            max_attempts: Some(self.config.max_attempts),
+                            best_score: Some(best_score),
+                            best_clue_count: best_clue_count,
+                        }),
+                    );
                     return Some(puzzle);
                 }
             }
@@ -239,6 +313,29 @@ impl PuzzleGenerator {
                 puzzle[idx] = saved;
                 continue;
             }
+        }
+
+        if best_puzzle.is_some() {
+            report_progress_with_meta(
+                0.9,
+                "Analyzing difficulty",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(self.config.max_attempts),
+                    best_score: Some(best_score),
+                    best_clue_count: best_clue_count,
+                }),
+            );
+            report_progress_with_meta(
+                0.98,
+                "Finalizing puzzle",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(self.config.max_attempts),
+                    best_score: Some(best_score),
+                    best_clue_count: best_clue_count,
+                }),
+            );
         }
 
         best_puzzle
@@ -417,11 +514,21 @@ impl PuzzleGenerator {
         indices
     }
 
-    fn get_symmetric_index(&self, index: usize) -> usize {
+fn get_symmetric_index(&self, index: usize) -> usize {
         let row = index / 9;
         let col = index % 9;
         (8 - row) * 9 + (8 - col)
     }
+}
+
+/// Map attempt count to a smooth progress value (60% → 96%) so users see movement during search
+pub(crate) fn search_progress(attempt: u32, max_attempts: u32) -> f64 {
+    if max_attempts == 0 {
+        return 0.6;
+    }
+    let fraction = (attempt as f64 / max_attempts as f64).min(1.0);
+    // Allocate remaining headroom (0.6 → 0.96) linearly to attempt progress
+    (0.6 + fraction * 0.36).min(0.96)
 }
 
 /*──────── PROGRESS HOOKS (wasm only) ─────*/
@@ -429,19 +536,58 @@ impl PuzzleGenerator {
 #[cfg(target_arch = "wasm32")]
 pub fn set_generation_progress_callback(callback: Option<Function>) {
     PROGRESS_CALLBACK.with(|cb| *cb.borrow_mut() = callback);
+    reset_progress_tracker();
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_generation_progress_callback(_callback: Option<Function>) {}
 
-fn report_progress(percent: f64, stage: &str) {
+#[cfg(target_arch = "wasm32")]
+pub fn reset_progress_tracker() {
+    LAST_PROGRESS.with(|lp| *lp.borrow_mut() = 0.0);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn reset_progress_tracker() {}
+
+pub(crate) fn report_progress(percent: f64, stage: &str) {
+    send_progress(percent, stage, None);
+}
+
+pub(crate) fn report_progress_with_meta(
+    percent: f64,
+    stage: &str,
+    meta: Option<ProgressMeta>,
+) {
+    send_progress(percent, stage, meta);
+}
+
+fn send_progress(percent: f64, stage: &str, meta: Option<ProgressMeta>) {
     #[cfg(target_arch = "wasm32")]
     PROGRESS_CALLBACK.with(|cb| {
         if let Some(func) = cb.borrow().as_ref() {
-            let _ = func.call2(
+            let pct = percent.clamp(0.0, 1.0);
+            let should_emit = LAST_PROGRESS.with(|lp| {
+                let mut last = lp.borrow_mut();
+                if pct <= *last {
+                    return false;
+                }
+                *last = pct;
+                true
+            });
+            if !should_emit {
+                return;
+            }
+
+            let meta_value = meta
+                .as_ref()
+                .map(|m| progress_meta_to_js(m))
+                .unwrap_or_else(|| JsValue::NULL);
+            let _ = func.call3(
                 &JsValue::NULL,
-                &JsValue::from_f64(percent),
+                &JsValue::from_f64(pct),
                 &JsValue::from(stage),
+                &meta_value,
             );
         }
     });
@@ -450,7 +596,44 @@ fn report_progress(percent: f64, stage: &str) {
     {
         let _ = percent;
         let _ = stage;
+        let _ = meta;
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn progress_meta_to_js(meta: &ProgressMeta) -> JsValue {
+    let obj = Object::new();
+    if let Some(attempt) = meta.attempt {
+        let _ = Reflect::set(&obj, &JsValue::from("attempt"), &JsValue::from(attempt));
+    }
+    if let Some(max_attempts) = meta.max_attempts {
+        let _ = Reflect::set(
+            &obj,
+            &JsValue::from("max_attempts"),
+            &JsValue::from(max_attempts),
+        );
+    }
+    if let Some(best_score) = meta.best_score {
+        let _ = Reflect::set(
+            &obj,
+            &JsValue::from("best_score"),
+            &JsValue::from_f64(best_score),
+        );
+    }
+    if let Some(best_clue_count) = meta.best_clue_count {
+        let _ = Reflect::set(
+            &obj,
+            &JsValue::from("best_clue_count"),
+            &JsValue::from(best_clue_count as u32),
+        );
+    }
+    obj.into()
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[cfg(not(target_arch = "wasm32"))]
+fn progress_meta_to_js(_meta: &ProgressMeta) -> JsValue {
+    JsValue::NULL
 }
 
 /*──────── PUBLIC API ────────*/

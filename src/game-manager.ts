@@ -75,7 +75,10 @@ export class GameManager {
 			const gameBoard = await this.generatePuzzleBoard(
 				difficulty,
 				this.currentSeed!,
-				(pct, stage) => modal.setLoadingProgress(pct, stage)
+				(pct, stage, meta) => {
+					modal.setLoadingProgress(pct, stage);
+					modal.setLoadingDetails(this.formatProgressDetails(meta));
+				}
 			);
 			this.boardState = gameBoard.map((val: number | undefined) =>
 				val ?? null
@@ -643,7 +646,10 @@ export class GameManager {
 			const gameBoard = await this.generatePuzzleBoard(
 				difficulty,
 				seed,
-				(pct, stage) => modal.setLoadingProgress(pct, stage)
+				(pct, stage, meta) => {
+					modal.setLoadingProgress(pct, stage);
+					modal.setLoadingDetails(this.formatProgressDetails(meta));
+				}
 			);
 			this.boardState = gameBoard.map((val: number | undefined) =>
 				val ?? null
@@ -790,7 +796,7 @@ export class GameManager {
 		worker: Worker,
 		difficulty: number,
 		seed: number,
-		onProgress?: (pct: number, stage?: string) => void
+		onProgress?: (pct: number, stage?: string, meta?: any) => void
 	): Promise<(number | undefined)[]> {
 		this.workerBusy = true;
 		const requestId = ++this.workerRequestId;
@@ -807,7 +813,7 @@ export class GameManager {
 							0,
 							Math.min(1, Number(data.progress ?? 0))
 						);
-						onProgress(pct * 100, data.stage);
+						onProgress(pct * 100, data.stage, data.meta);
 					}
 					return;
 				}
@@ -852,7 +858,7 @@ export class GameManager {
 	private async generatePuzzleInMainThread(
 		difficulty: number,
 		seed: number,
-		onProgress?: (pct: number, stage?: string) => void
+		onProgress?: (pct: number, stage?: string, meta?: any) => void
 	): Promise<(number | undefined)[]> {
 		const cleanupProgress = onProgress
 			? this.setupGenerationProgress(onProgress)
@@ -870,7 +876,7 @@ export class GameManager {
 	 * Wire up WASM progress callbacks (if available). Returns a cleanup function.
 	 */
 	private setupGenerationProgress(
-		sink: (pct: number, stage?: string) => void
+		sink: (pct: number, stage?: string, meta?: any) => void
 	): () => void {
 		const wasmModule = (window as any).wasm;
 		const canReport =
@@ -892,9 +898,9 @@ export class GameManager {
 			};
 		}
 
-		const progressHandler = (progress: number, stage?: string) => {
+		const progressHandler = (progress: number, stage?: string, meta?: any) => {
 			const pct = Math.max(0, Math.min(1, Number(progress))) * 100;
-			sink(pct, stage);
+			sink(pct, stage, meta);
 		};
 
 		wasmModule.register_progress_callback(progressHandler);
@@ -920,6 +926,38 @@ export class GameManager {
 		return `${hours.toString().padStart(2, "0")}:${minutes
 			.toString()
 			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+	}
+
+	/**
+	 * Build a human-readable progress details string from generator metadata
+	 */
+	private formatProgressDetails(meta: any): string {
+		if (!meta || typeof meta !== "object") return "";
+
+		const parts: string[] = [];
+		const attempt = typeof meta.attempt === "number" ? meta.attempt : undefined;
+		const maxAttempts =
+			typeof meta.max_attempts === "number" ? meta.max_attempts : undefined;
+
+		if (attempt !== undefined) {
+			const humanAttempt = attempt + 1; // display 1-based
+			if (maxAttempts !== undefined) {
+				parts.push(`Attempt ${humanAttempt} / ${maxAttempts}`);
+			} else {
+				parts.push(`Attempt ${humanAttempt}`);
+			}
+		}
+
+		if (typeof meta.best_clue_count === "number") {
+			parts.push(`Best clues so far: ${meta.best_clue_count}`);
+		}
+
+		if (typeof meta.best_score === "number") {
+			const rounded = meta.best_score.toFixed(2);
+			parts.push(`Score: ${rounded}`);
+		}
+
+		return parts.join(" • ");
 	}
 
 	/**

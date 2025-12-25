@@ -592,8 +592,8 @@ function __wbg_get_imports() {
         const ret = arg0.call(arg1, arg2);
         return ret;
     }, arguments) };
-    imports.wbg.__wbg_call_833bed5770ea2041 = function() { return handleError(function (arg0, arg1, arg2, arg3) {
-        const ret = arg0.call(arg1, arg2, arg3);
+    imports.wbg.__wbg_call_b8adc8b1d0a0d8eb = function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+        const ret = arg0.call(arg1, arg2, arg3, arg4);
         return ret;
     }, arguments) };
     imports.wbg.__wbg_crypto_574e78ad8b13b65f = function() { return logError(function (arg0) {

@@ -19,14 +19,17 @@ self.onmessage = async (event: MessageEvent) => {
 		await ensureWasm();
 
 		if (typeof wasm.register_progress_callback === "function") {
-			wasm.register_progress_callback((progress: number, stage: string) => {
-				(self as DedicatedWorkerGlobalScope).postMessage({
-					id,
-					type: "progress",
-					progress,
-					stage,
-				});
-			});
+			wasm.register_progress_callback(
+				(progress: number, stage: string, meta: any) => {
+					(self as DedicatedWorkerGlobalScope).postMessage({
+						id,
+						type: "progress",
+						progress,
+						stage,
+						meta,
+					});
+				}
+			);
 		}
 
 		const gameBoard = wasm.createGameWithSeed(difficulty, BigInt(seed));

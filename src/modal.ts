@@ -18,6 +18,7 @@ export class Modal {
 	private modal: HTMLElement | null = null;
 	private progressBar: HTMLElement | null = null;
 	private progressMessage: HTMLElement | null = null;
+	private progressDetails: HTMLElement | null = null;
 
 	/**
 	 * Show a modal dialog
@@ -116,6 +117,12 @@ export class Modal {
 		progress.appendChild(progressBar);
 		body.appendChild(progress);
 
+		const details = document.createElement("div");
+		details.className = "modal-progress-details";
+		details.textContent = "";
+		this.progressDetails = details;
+		body.appendChild(details);
+
 		content.appendChild(header);
 		content.appendChild(body);
 		this.modal.appendChild(content);
@@ -139,6 +146,12 @@ export class Modal {
 
 		if (stage && this.progressMessage) {
 			this.progressMessage.textContent = stage;
+		}
+	}
+
+	setLoadingDetails(details: string): void {
+		if (this.progressDetails) {
+			this.progressDetails.textContent = details;
 		}
 	}
 
@@ -501,6 +514,7 @@ export class Modal {
 		this.modal = null;
 		this.progressBar = null;
 		this.progressMessage = null;
+		this.progressDetails = null;
 	}
 
 	private clearModalImmediate(): void {
@@ -511,6 +525,7 @@ export class Modal {
 		this.modal = null;
 		this.progressBar = null;
 		this.progressMessage = null;
+		this.progressDetails = null;
 	}
 }
 

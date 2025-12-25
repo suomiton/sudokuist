@@ -11,7 +11,10 @@ use wasm_bindgen::prelude::*;
 use web_sys::console;
 
 use crate::difficulty::analyze_difficulty;
-use crate::generator::{GeneratorConfig, PuzzleGenerator};
+use crate::generator::{
+    report_progress, report_progress_with_meta, reset_progress_tracker, search_progress,
+    GeneratorConfig, ProgressMeta, PuzzleGenerator,
+};
 use crate::solver::HumanStyleSolver;
 use crate::types::{DifficultyAnalysis, DifficultyLevel, SolvingTechnique, BOARD_SIZE};
 use crate::validator::{
@@ -548,16 +551,47 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
     let generator = PuzzleGenerator::new(config.clone());
     let base_seed = seed.wrapping_add(difficulty as u64);
 
+    reset_progress_tracker();
+    report_progress_with_meta(
+        0.05,
+        "Preparing generator",
+        Some(ProgressMeta {
+            attempt: Some(0),
+            max_attempts: Some(config.max_attempts),
+            best_score: None,
+            best_clue_count: None,
+        }),
+    );
+
     let mut best_puzzle: Option<Vec<Option<u8>>> = None;
     let mut best_score = f64::INFINITY;
+    let mut best_clue_count: Option<usize> = None;
+    let removal_target = (BOARD_SIZE - config.min_clues).max(1);
 
     for attempt in 0..config.max_attempts {
         let mut board: Vec<Option<u8>> = solved_board.iter().map(|&x| Some(x)).collect();
         let mut attempt_rng = SmallRng::seed_from_u64(base_seed.wrapping_add(attempt as u64));
         let order = seeded_removal_order(&mut attempt_rng, config.prefer_symmetry);
         let mut since_unique_check = 0;
+        if attempt % 10 == 0 {
+            let pct = 0.05 + (attempt as f64 / config.max_attempts as f64) * 0.15;
+            report_progress(pct.min(0.2), "Searching puzzle variants");
+        }
 
-        for idx in order {
+        if attempt % 5 == 0 {
+            report_progress_with_meta(
+                search_progress(attempt, config.max_attempts),
+                "Evaluating candidate puzzles",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(config.max_attempts),
+                    best_score: None,
+                    best_clue_count: None,
+                }),
+            );
+        }
+
+        for (step, idx) in order.into_iter().enumerate() {
             let saved = board[idx];
             board[idx] = None;
 
@@ -565,6 +599,13 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
             if clue_count < config.min_clues {
                 board[idx] = saved;
                 break;
+            }
+
+            if step % 3 == 0 {
+                let removed = BOARD_SIZE.saturating_sub(clue_count);
+                let removal_fraction = (removed as f64 / removal_target as f64).min(1.0);
+                let pct = 0.2 + removal_fraction * 0.4; // cap carving around 0.6
+                report_progress(pct.min(0.6), "Carving clues");
             }
 
             let needs_unique_check = since_unique_check >= config.unique_check_interval
@@ -590,6 +631,36 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
         let branching_factor = generator.calculate_branching_factor(&board);
 
         if seeded_meets_constraints(&config, &board, &analysis, branching_factor) {
+            report_progress_with_meta(
+                0.8,
+                "Validating uniqueness",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(config.max_attempts),
+                    best_score: Some(best_score),
+                    best_clue_count,
+                }),
+            );
+            report_progress_with_meta(
+                0.9,
+                "Analyzing difficulty",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(config.max_attempts),
+                    best_score: Some(best_score),
+                    best_clue_count,
+                }),
+            );
+            report_progress_with_meta(
+                0.98,
+                "Finalizing puzzle",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(config.max_attempts),
+                    best_score: Some(best_score),
+                    best_clue_count,
+                }),
+            );
             return board;
         }
 
@@ -599,6 +670,31 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
         if score < best_score {
             best_score = score;
             best_puzzle = Some(board);
+            best_clue_count = Some(clue_count);
+            report_progress_with_meta(
+                search_progress(attempt, config.max_attempts),
+                "Evaluating candidate puzzles",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(config.max_attempts),
+                    best_score: Some(best_score),
+                    best_clue_count,
+                }),
+            );
+        }
+
+        // Surface progress for long-running search across attempts
+        if attempt % 25 == 0 {
+            report_progress_with_meta(
+                search_progress(attempt, config.max_attempts),
+                "Evaluating candidate puzzles",
+                Some(ProgressMeta {
+                    attempt: Some(attempt),
+                    max_attempts: Some(config.max_attempts),
+                    best_score: best_score.into(),
+                    best_clue_count,
+                }),
+            );
         }
     }
 
@@ -613,6 +709,16 @@ fn create_puzzle_with_seed(solved_board: &[u8], difficulty: u8, seed: u64) -> Ve
             .wrapping_add(0xA5A5_5A5A),
     );
 
+    report_progress_with_meta(
+        0.98,
+        "Finalizing puzzle",
+        Some(ProgressMeta {
+            attempt: Some(config.max_attempts),
+            max_attempts: Some(config.max_attempts),
+            best_score: Some(best_score),
+            best_clue_count,
+        }),
+    );
     puzzle
 }
 

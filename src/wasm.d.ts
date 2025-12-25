@@ -11,7 +11,7 @@ declare module "/assets/sudoku_wasm.js" {
 	export function createBoard(): Uint8Array;
 	export function createGameWithSeed(difficulty: number, seed: bigint): any;
 	export function register_progress_callback(
-		callback: (progress: number, stage: string) => void
+		callback: (progress: number, stage: string, meta?: any) => void
 	): void;
 	export function clear_progress_callback(): void;
 	export function validateBoard(board: any): ValidationResult;
@@ -23,7 +23,7 @@ declare module "./pkg/sudoku_wasm.js" {
 	export function createBoard(): Uint8Array;
 	export function createGameWithSeed(difficulty: number, seed: bigint): any;
 	export function register_progress_callback(
-		callback: (progress: number, stage: string) => void
+		callback: (progress: number, stage: string, meta?: any) => void
 	): void;
 	export function clear_progress_callback(): void;
 	export function validateBoard(board: any): ValidationResult;

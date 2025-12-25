@@ -187,3 +187,10 @@
 	background: var(--color-primary);
 	transition: width 0.25s ease;
 }
+
+.modal-progress-details {
+	margin-top: var(--gutter-sm);
+	font-size: 0.9rem;
+	color: #666;
+	min-height: 1.2em;
+}
