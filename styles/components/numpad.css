@@ -144,6 +144,23 @@
 	height: 100%;
 }
 
+.numpad-btn.complete,
+.numpad-btn:disabled {
+	background: var(--color-border);
+	color: var(--color-text-light);
+	border: 2px solid var(--color-border);
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.numpad-btn.complete:hover,
+.numpad-btn:disabled:hover {
+	background: var(--color-border);
+	color: var(--color-text-light);
+	transform: none;
+}
+
 /* Note highlighting for numpad buttons */
 .numpad-btn.has-note {
 	background: var(--color-primary-light);

@@ -217,6 +217,7 @@ export class GameManager {
 
 		// Refresh board highlights to include the new value
 		this.refreshHighlights();
+		this.updateNumpadCompletionState();
 
 		if (this.currentGameId) {
 			const cellRecord: CellRecord = {
@@ -335,6 +336,7 @@ export class GameManager {
 		// Update cell display
 		this.updateCellDisplay(cellIndex);
 		this.refreshHighlights();
+		this.updateNumpadCompletionState();
 
 		// Increment hints used counter
 		this.hintsUsed++;
@@ -403,6 +405,7 @@ export class GameManager {
 
 		// Initial validation
 		await this.validateAndUpdateUI();
+		this.updateNumpadCompletionState();
 	}
 
 	/**
@@ -1213,6 +1216,58 @@ export class GameManager {
 	}
 
 	/**
+	 * Disable/enable numpad numbers when all 9 copies are placed
+	 */
+	private updateNumpadCompletionState(): void {
+		const counts = new Array(10).fill(0);
+		this.boardState.forEach((val) => {
+			if (val !== null && val >= 1 && val <= 9) {
+				counts[val]++;
+			}
+		});
+
+		const numpadButtons = document.querySelectorAll(".numpad-btn[data-value]");
+		numpadButtons.forEach((button) => {
+			const valueAttr = button.getAttribute("data-value");
+			const numValue = valueAttr ? parseInt(valueAttr, 10) : NaN;
+			const isNumber =
+				Number.isInteger(numValue) && numValue >= 1 && numValue <= 9;
+			const isComplete = isNumber && counts[numValue] >= 9;
+
+			if (isNumber) {
+				(button as HTMLButtonElement).disabled = isComplete;
+				button.classList.toggle("complete", isComplete);
+				if (isComplete) {
+					button.classList.remove("has-note");
+				}
+				if (isComplete) {
+					button.setAttribute("title", "All 9 placed");
+				} else {
+					button.removeAttribute("title");
+				}
+			} else {
+				(button as HTMLButtonElement).disabled = false;
+				button.classList.remove("complete");
+			}
+		});
+	}
+
+	/**
+	 * Check if a number already has 9 placements on the board
+	 */
+	private isNumberComplete(value: number): boolean {
+		if (value < 1 || value > 9) return false;
+		let count = 0;
+		for (const cellValue of this.boardState) {
+			if (cellValue === value) {
+				count++;
+				if (count >= 9) return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Set the focused cell and apply matching-number highlights
 	 */
 	private setFocusedCell(cellIndex: number, isEditable: boolean): void {
@@ -1299,6 +1354,7 @@ export class GameManager {
 
 			// Touch start - start long press timer
 			button.addEventListener("touchstart", (e) => {
+				if ((e.currentTarget as HTMLButtonElement).disabled) return;
 				isLongPress = false;
 				longPressTimer = window.setTimeout(() => {
 					isLongPress = true;
@@ -1328,6 +1384,8 @@ export class GameManager {
 
 			// Touch end - clear timer and handle regular tap if not long press
 			button.addEventListener("touchend", (e) => {
+				if ((e.currentTarget as HTMLButtonElement).disabled) return;
+
 				if (longPressTimer) {
 					clearTimeout(longPressTimer);
 					longPressTimer = null;
@@ -1364,6 +1422,8 @@ export class GameManager {
 
 			// Mouse click for desktop - handle with shift key
 			button.addEventListener("click", (e) => {
+				if ((e.currentTarget as HTMLButtonElement).disabled) return;
+
 				// Skip if this was a touch event (handled above)
 				const mouseEvent = e as MouseEvent;
 				if (mouseEvent.detail === 0) return; // Touch events have detail = 0
@@ -1415,6 +1475,10 @@ export class GameManager {
 			const numericKey = this.getNumericKey(e);
 			if (numericKey !== null) {
 				e.preventDefault();
+				if (this.isNumberComplete(numericKey)) {
+					return;
+				}
+
 				if (e.shiftKey) {
 					// Shift+number = toggle note (desktop keyboard shortcut)
 					this.toggleNote(this.selectedCellIndex, numericKey);
