@@ -27,6 +27,9 @@ export class GameManager {
 
 	// Numpad properties
 	private selectedCellIndex: number | null = null;
+	private focusedCellIndex: number | null = null;
+	private highlightedValue: number | null = null;
+	private focusedCellIsEditable = false;
 
 	// Generation worker (to avoid blocking the main thread)
 	private generationWorker: Worker | null = null;
@@ -212,6 +215,9 @@ export class GameManager {
 			this.updateNumpadHighlighting(cellIndex);
 		}
 
+		// Refresh board highlights to include the new value
+		this.refreshHighlights();
+
 		if (this.currentGameId) {
 			const cellRecord: CellRecord = {
 				gameId: this.currentGameId,
@@ -328,6 +334,7 @@ export class GameManager {
 
 		// Update cell display
 		this.updateCellDisplay(cellIndex);
+		this.refreshHighlights();
 
 		// Increment hints used counter
 		this.hintsUsed++;
@@ -402,16 +409,35 @@ export class GameManager {
 	 * Setup interaction handlers for a cell
 	 */
 	private setupCellInteraction(cell: HTMLElement, index: number): void {
-		// All cells should have click handlers for consistency
-		cell.addEventListener("click", () => {
-			if (this.givenCells.has(index)) {
-				// If clicking on a given cell, hide the numpad
-				this.hideNumpad();
-			} else {
-				// If clicking on an editable cell, show numpad
-				this.showNumpad(index);
+		const activateCell = (event?: Event) => {
+			if (event?.type === "touchend") {
+				event.preventDefault();
+			}
+			this.handleCellSelection(index);
+		};
+
+		// Click and touch handlers to make every cell tappable
+		cell.addEventListener("click", activateCell);
+		cell.addEventListener("touchend", activateCell);
+		cell.addEventListener("keydown", (event) => {
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				this.handleCellSelection(index);
 			}
 		});
+	}
+
+	/**
+	 * Handle selecting a cell (given or editable)
+	 */
+	private handleCellSelection(index: number): void {
+		if (this.givenCells.has(index)) {
+			// Given cells are read-only: highlight matches but never show the numpad
+			this.setFocusedCell(index, false);
+			this.hideNumpad({ preserveFocus: true });
+		} else {
+			this.showNumpad(index);
+		}
 	}
 
 	/**
@@ -1187,6 +1213,77 @@ export class GameManager {
 	}
 
 	/**
+	 * Set the focused cell and apply matching-number highlights
+	 */
+	private setFocusedCell(cellIndex: number, isEditable: boolean): void {
+		this.focusedCellIndex = cellIndex;
+		this.focusedCellIsEditable = isEditable;
+		this.selectedCellIndex = isEditable ? cellIndex : null;
+		this.highlightedValue = this.boardState[cellIndex] ?? null;
+
+		this.applyCellHighlights();
+	}
+
+	/**
+	 * Apply focus and matching-number styles
+	 */
+	private applyCellHighlights(): void {
+		const cells = document.querySelectorAll(".cell");
+		cells.forEach((el) =>
+			el.classList.remove("focused", "matching-value", "selected")
+		);
+
+		if (this.focusedCellIndex === null) {
+			return;
+		}
+
+		const focusedCell = document.querySelector(
+			`[data-index="${this.focusedCellIndex}"]`
+		) as HTMLElement | null;
+
+		if (focusedCell) {
+			focusedCell.classList.add("focused");
+			if (this.focusedCellIsEditable) {
+				focusedCell.classList.add("selected");
+			}
+		}
+
+		if (this.highlightedValue === null) return;
+
+		cells.forEach((el) => {
+			const idx = Number((el as HTMLElement).dataset.index);
+			if (this.boardState[idx] === this.highlightedValue) {
+				el.classList.add("matching-value");
+			}
+		});
+	}
+
+	/**
+	 * Clear focused cell state and highlights
+	 */
+	private clearFocus(): void {
+		this.focusedCellIndex = null;
+		this.highlightedValue = null;
+		this.focusedCellIsEditable = false;
+		this.selectedCellIndex = null;
+		this.applyCellHighlights();
+	}
+
+	/**
+	 * Re-apply highlights after the board values change
+	 */
+	private refreshHighlights(): void {
+		if (this.focusedCellIndex !== null) {
+			this.highlightedValue =
+				this.boardState[this.focusedCellIndex] ?? null;
+		} else {
+			this.highlightedValue = null;
+		}
+
+		this.applyCellHighlights();
+	}
+
+	/**
 	 * Setup universal numpad event listeners and functionality
 	 */
 	private setupNumpad(): void {
@@ -1349,7 +1446,7 @@ export class GameManager {
 	 * Show numpad for the selected cell
 	 */
 	private showNumpad(cellIndex: number): void {
-		this.selectedCellIndex = cellIndex;
+		this.setFocusedCell(cellIndex, true);
 
 		const numpad = document.getElementById("number-picker");
 		if (!numpad) return;
@@ -1363,9 +1460,6 @@ export class GameManager {
 			numpad.classList.add("show");
 		});
 
-		// Update selected cell visual feedback
-		this.updateSelectedCellHighlight(cellIndex);
-
 		// Update numpad highlighting based on current cell's notes
 		this.updateNumpadHighlighting(cellIndex);
 	}
@@ -1373,7 +1467,7 @@ export class GameManager {
 	/**
 	 * Hide numpad
 	 */
-	private hideNumpad(): void {
+	private hideNumpad(options?: { preserveFocus?: boolean }): void {
 		const numpad = document.getElementById("number-picker");
 		if (!numpad) return;
 
@@ -1388,34 +1482,18 @@ export class GameManager {
 			numpad.classList.add("hidden");
 		}, 300);
 
-		// Clear selected cell
-		this.selectedCellIndex = null;
-		this.clearSelectedCellHighlight();
-	}
-
-	/**
-	 * Update visual highlight for selected cell
-	 */
-	private updateSelectedCellHighlight(cellIndex: number): void {
-		// Remove previous highlights
-		document.querySelectorAll(".cell.selected").forEach((cell) => {
-			cell.classList.remove("selected");
-		});
-
-		// Add highlight to selected cell
-		const cell = document.querySelector(`[data-index="${cellIndex}"]`);
-		if (cell) {
-			cell.classList.add("selected");
+		// Clear focus and selection unless we want to keep highlight on a given cell
+		if (options?.preserveFocus) {
+			this.selectedCellIndex = null;
+			if (this.focusedCellIndex !== null) {
+				this.focusedCellIsEditable = false;
+				this.applyCellHighlights();
+			} else {
+				this.clearFocus();
+			}
+		} else {
+			this.clearFocus();
 		}
-	}
-
-	/**
-	 * Clear selected cell highlight
-	 */
-	private clearSelectedCellHighlight(): void {
-		document.querySelectorAll(".cell.selected").forEach((cell) => {
-			cell.classList.remove("selected");
-		});
 	}
 
 	/**

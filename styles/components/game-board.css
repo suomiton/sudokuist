@@ -137,6 +137,24 @@
 	animation: shake 0.3s ease-in-out;
 }
 
+/* Focused cells (including read-only clues) */
+.cell.focused:not(.selected):not(.invalid) {
+	background: #f1f6f2;
+	box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+/* Matching number emphasis */
+.cell.matching-value:not(.selected):not(.invalid) {
+	background: #f4f7ff;
+	box-shadow: inset 0 0 0 2px var(--color-primary-light);
+	color: var(--color-primary-dark);
+}
+
+.cell.matching-value.given:not(.selected):not(.invalid) {
+	font-weight: 700;
+	color: var(--color-primary);
+}
+
 /* Selected cell for numpad */
 .cell.selected {
 	background: var(--color-primary-light);
