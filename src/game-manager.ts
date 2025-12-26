@@ -1410,36 +1410,60 @@ export class GameManager {
 
 		// Handle hardware keyboard input even when numpad is visible
 		document.addEventListener("keydown", (e) => {
-			if (
-				this.selectedCellIndex !== null &&
-				numpad.classList.contains("show")
-			) {
-				if (e.key >= "1" && e.key <= "9") {
-					e.preventDefault();
-					const value = parseInt(e.key);
-					if (e.shiftKey) {
-						// Shift+number = toggle note
-						this.toggleNote(this.selectedCellIndex, value);
-					} else {
-						// Regular number input
-						this.updateCell(this.selectedCellIndex, value);
-					}
-				} else if (["Backspace", "Delete", " "].includes(e.key)) {
-					e.preventDefault();
-					if (e.shiftKey) {
-						// Shift+delete = clear notes only
-						this.clearNotes(this.selectedCellIndex);
-					} else {
-						// Regular delete = clear value and notes
-						this.updateCell(this.selectedCellIndex, null);
-						this.clearNotes(this.selectedCellIndex);
-					}
-				} else if (e.key === "Escape") {
-					e.preventDefault();
-					this.hideNumpad();
+			if (this.selectedCellIndex === null) return;
+
+			const numericKey = this.getNumericKey(e);
+			if (numericKey !== null) {
+				e.preventDefault();
+				if (e.shiftKey) {
+					// Shift+number = toggle note (desktop keyboard shortcut)
+					this.toggleNote(this.selectedCellIndex, numericKey);
+				} else {
+					this.updateCell(this.selectedCellIndex, numericKey);
 				}
+				return;
+			}
+
+			if (["Backspace", "Delete", " "].includes(e.key)) {
+				e.preventDefault();
+				if (e.shiftKey) {
+					// Shift+delete = clear notes only
+					this.clearNotes(this.selectedCellIndex);
+				} else {
+					// Regular delete = clear value and notes
+					this.updateCell(this.selectedCellIndex, null);
+					this.clearNotes(this.selectedCellIndex);
+				}
+				return;
+			}
+
+			if (e.key === "Escape") {
+				e.preventDefault();
+				this.hideNumpad();
 			}
 		});
+	}
+
+	/**
+	 * Normalize keyboard numeric input (supports shifted number keys)
+	 */
+	private getNumericKey(event: KeyboardEvent): number | null {
+		if (event.key >= "1" && event.key <= "9") {
+			return parseInt(event.key, 10);
+		}
+
+		// Handle shifted number row keys where e.key is "!"..."(" but code stays DigitX
+		const digitMatch = event.code.match(/^Digit([1-9])$/);
+		if (digitMatch) {
+			return parseInt(digitMatch[1], 10);
+		}
+
+		const numpadMatch = event.code.match(/^Numpad([1-9])$/);
+		if (numpadMatch) {
+			return parseInt(numpadMatch[1], 10);
+		}
+
+		return null;
 	}
 
 	/**
