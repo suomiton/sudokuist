@@ -92,9 +92,9 @@ export default defineConfig(({ command, mode }) => {
 					assetFileNames: isProduction ? 'assets/[name]-[hash].[ext]' : '[name].[ext]',
 					// Manual chunks for better caching
 					manualChunks: isProduction ? {
-						'wasm-core': ['./src/wasm-loader.ts'],
-						'game-logic': ['./src/game-manager.ts', './src/database.ts'],
-						'ui-components': ['./src/modal.ts', './src/utils.ts']
+						'wasm-core': ['./src/typescript/wasm-loader.ts'],
+						'game-logic': ['./src/typescript/game-manager.ts', './src/typescript/database.ts'],
+						'ui-components': ['./src/typescript/modal.ts', './src/typescript/utils.ts']
 					} : undefined
 				},
 				plugins: isProduction ? [

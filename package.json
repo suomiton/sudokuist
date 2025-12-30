@@ -7,7 +7,7 @@
 	"scripts": {
 		"build-wasm": "wasm-pack build --target web --out-dir pkg --dev && cp pkg/sudoku_wasm.js pkg/sudoku_wasm_bg.wasm public/",
 		"build-wasm-release": "wasm-pack build --target web --out-dir pkg --release && cp pkg/sudoku_wasm.js pkg/sudoku_wasm_bg.wasm public/",
-		"build-ts": "cp -r pkg src/ && tsc && vite build && mkdir -p dist/styles && cp styles/* dist/styles/ && cp public/* dist/",
+		"build-ts": "cp -r pkg src/ && tsc && vite build && mkdir -p dist/styles/components && cp styles/*.css dist/styles/ && cp styles/components/*.css dist/styles/components/ && cp public/* dist/",
 		"build": "npm run build-wasm-release && npm run build-ts",
 		"build:prod": "./build-prod.sh",
 		"build:optimized": "./build-optimized.sh",

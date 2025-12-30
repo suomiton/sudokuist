@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import initWasm, * as wasm from "./pkg/sudoku_wasm.js";
+import initWasm, * as wasm from "../pkg/sudoku_wasm.js";
 
 let wasmReady: Promise<void> | null = null;
 
@@ -48,7 +48,9 @@ self.onmessage = async (event: MessageEvent) => {
 			id,
 			type: "error",
 			message:
-				error instanceof Error ? error.message : "Unknown error during generation",
+				error instanceof Error
+					? error.message
+					: "Unknown error during generation",
 		});
 	}
 };

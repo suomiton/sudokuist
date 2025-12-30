@@ -11,7 +11,7 @@ export async function initializeWasm(): Promise<void> {
 		let wasmModule;
 		if (import.meta.env.DEV) {
 			// During development, import from the copied pkg directory in src
-			wasmModule = await import("./pkg/sudoku_wasm.js");
+			wasmModule = await import("../pkg/sudoku_wasm.js");
 			await wasmModule.default();
 		} else {
 			// In production, load from the base path (respects Vite's base configuration)

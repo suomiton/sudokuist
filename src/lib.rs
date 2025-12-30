@@ -19,13 +19,20 @@
 //! - [`generator`] - Puzzle generation with difficulty targeting
 //! - [`wasm_exports`] - WebAssembly interface for JavaScript
 
-// Module declarations
+// Module declarations - all modules are now in the rust/ subdirectory
+#[path = "rust/difficulty.rs"]
 pub mod difficulty;
+#[path = "rust/generator.rs"]
 pub mod generator;
+#[path = "rust/grid.rs"]
 pub mod grid;
+#[path = "rust/solver.rs"]
 pub mod solver;
+#[path = "rust/types.rs"]
 pub mod types;
+#[path = "rust/validator.rs"]
 pub mod validator;
+#[path = "rust/wasm_exports.rs"]
 pub mod wasm_exports;
 
 // Re-export main functionality for easier access

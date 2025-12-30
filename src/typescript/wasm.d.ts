@@ -29,3 +29,15 @@ declare module "./pkg/sudoku_wasm.js" {
 	export function validateBoard(board: any): ValidationResult;
 	export function solveBoard(board: any): Uint8Array;
 }
+
+declare module "../pkg/sudoku_wasm.js" {
+	export default function init(): Promise<void>;
+	export function createBoard(): Uint8Array;
+	export function createGameWithSeed(difficulty: number, seed: bigint): any;
+	export function register_progress_callback(
+		callback: (progress: number, stage: string, meta?: any) => void
+	): void;
+	export function clear_progress_callback(): void;
+	export function validateBoard(board: any): ValidationResult;
+	export function solveBoard(board: any): Uint8Array;
+}
