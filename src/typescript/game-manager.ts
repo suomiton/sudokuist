@@ -4,8 +4,10 @@
 
 import type { GameRecord, CellRecord, ValidationResult } from "./types.js";
 import { DatabaseManager } from "./database.js";
-import { generateUUID, createElement } from "./utils.js";
+import { generateUUID } from "./utils.js";
 import { modal } from "./modal.js";
+import { BoardComponent, BoardViewState } from "./ui/board-component.js";
+import { NumpadComponent, NumpadViewState } from "./ui/numpad-component.js";
 
 export class GameManager {
 	private currentGameId: string | null = null;
@@ -30,15 +32,38 @@ export class GameManager {
 	private focusedCellIndex: number | null = null;
 	private highlightedValue: number | null = null;
 	private focusedCellIsEditable = false;
+	private numpadVisible = false;
+	private invalidIndices: Set<number> = new Set();
+	private hintCells: Set<number> = new Set();
 
 	// Generation worker (to avoid blocking the main thread)
 	private generationWorker: Worker | null = null;
 	private workerRequestId = 0;
 	private workerBusy = false;
 
-	constructor(db: DatabaseManager) {
+	private boardComponent: BoardComponent;
+	private numpadComponent: NumpadComponent;
+
+	constructor(
+		db: DatabaseManager,
+		containers: { board: HTMLElement; numpad: HTMLElement }
+	) {
 		this.db = db;
-		this.setupNumpad();
+		this.boardComponent = new BoardComponent();
+		this.numpadComponent = new NumpadComponent();
+
+		this.boardComponent.init({
+			onCellSelect: (cellIndex) => this.handleCellSelection(cellIndex),
+		});
+		this.numpadComponent.init({
+			onValueInput: (value) => this.handleNumpadValue(value, false),
+			onNoteToggle: (value) => this.handleNumpadValue(value, true),
+			onClear: (clearNotesOnly) => this.handleNumpadClear(clearNotesOnly),
+			onRequestClose: () => this.hideNumpad(),
+		});
+
+		this.boardComponent.mount(containers.board);
+		this.numpadComponent.mount(containers.numpad);
 	}
 
 	/**
@@ -100,6 +125,7 @@ export class GameManager {
 				this.givenCells.add(index);
 			}
 		});
+		this.resetBoardUiState();
 
 		// Save initial board state to database
 		await this.saveBoardState();
@@ -160,6 +186,7 @@ export class GameManager {
 				this.givenCells.add(cell.cellIndex);
 			}
 		});
+		this.resetBoardUiState();
 	}
 
 	/**
@@ -195,29 +222,8 @@ export class GameManager {
 			this.notesState[cellIndex] = [];
 		}
 
-		// Update the visual cell
-		const cell = document.querySelector(
-			`[data-index="${cellIndex}"]`
-		) as HTMLElement;
-		if (cell) {
-			if (value !== null) {
-				cell.classList.add("user-input");
-			} else {
-				cell.classList.remove("user-input");
-			}
-		}
-
-		// Update cell display (including notes)
-		this.updateCellDisplay(cellIndex);
-
-		// Update numpad highlighting if this cell is selected (important for clearing note highlights)
-		if (this.selectedCellIndex === cellIndex) {
-			this.updateNumpadHighlighting(cellIndex);
-		}
-
-		// Refresh board highlights to include the new value
-		this.refreshHighlights();
-		this.updateNumpadCompletionState();
+		this.updateBoardView();
+		this.updateNumpadView();
 
 		if (this.currentGameId) {
 			const cellRecord: CellRecord = {
@@ -244,18 +250,8 @@ export class GameManager {
 		// The result is already a JavaScript object, no need to parse JSON
 		const validation: ValidationResult = result as ValidationResult;
 
-		// Clear previous invalid states
-		document.querySelectorAll(".cell.invalid").forEach((cell) => {
-			cell.classList.remove("invalid");
-		});
-
-		// Mark invalid cells
-		validation.invalidIndices.forEach((index: number) => {
-			const cell = document.querySelector(`[data-index="${index}"]`);
-			if (cell) {
-				cell.classList.add("invalid");
-			}
-		});
+		this.invalidIndices = new Set(validation.invalidIndices);
+		this.updateBoardView();
 
 		// Handle completion
 		if (validation.isComplete) {
@@ -323,20 +319,14 @@ export class GameManager {
 
 		// Update the cell with the hint
 		this.boardState[cellIndex] = hintValue;
-		const cell = document.querySelector(
-			`[data-index="${cellIndex}"]`
-		) as HTMLElement;
-		if (cell) {
-			cell.classList.add("user-input", "hint-cell");
-		}
+		this.hintCells.add(cellIndex);
 
 		// Clear any notes for this cell since we're setting a value
 		this.notesState[cellIndex] = [];
 
-		// Update cell display
-		this.updateCellDisplay(cellIndex);
 		this.refreshHighlights();
-		this.updateNumpadCompletionState();
+		this.updateNumpadView();
+		this.updateBoardView();
 
 		// Increment hints used counter
 		this.hintsUsed++;
@@ -363,9 +353,7 @@ export class GameManager {
 	private async showGameBoard(): Promise<void> {
 		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
-		const boardGrid = document.getElementById("sudoku-board");
-
-		if (!startScreen || !sudokuContainer || !boardGrid) return;
+		if (!startScreen || !sudokuContainer) return;
 
 		// Hide start screen, show game
 		startScreen.classList.add("hidden");
@@ -374,60 +362,11 @@ export class GameManager {
 		// Update share link for the current game
 		this.updateShareLink();
 
-		// Clear existing board
-		boardGrid.innerHTML = "";
-
-		// Create 81 cells (9x9 grid)
-		for (let i = 0; i < 81; i++) {
-			const cell = createElement("div", {
-				className: "cell",
-				tabIndex: 0,
-				dataset: { index: i.toString() },
-			});
-
-			// Set initial value and styling
-			const value = this.boardState[i];
-			if (value !== null) {
-				if (this.givenCells.has(i)) {
-					cell.classList.add("given");
-				} else {
-					cell.classList.add("user-input");
-				}
-			}
-
-			// Add click/focus handlers for user input
-			this.setupCellInteraction(cell, i);
-			boardGrid.appendChild(cell);
-
-			// Update cell display (including notes) AFTER appending to DOM
-			this.updateCellDisplay(i);
-		}
+		this.updateBoardView();
 
 		// Initial validation
 		await this.validateAndUpdateUI();
-		this.updateNumpadCompletionState();
-	}
-
-	/**
-	 * Setup interaction handlers for a cell
-	 */
-	private setupCellInteraction(cell: HTMLElement, index: number): void {
-		const activateCell = (event?: Event) => {
-			if (event?.type === "touchend") {
-				event.preventDefault();
-			}
-			this.handleCellSelection(index);
-		};
-
-		// Click and touch handlers to make every cell tappable
-		cell.addEventListener("click", activateCell);
-		cell.addEventListener("touchend", activateCell);
-		cell.addEventListener("keydown", (event) => {
-			if (event.key === "Enter" || event.key === " ") {
-				event.preventDefault();
-				this.handleCellSelection(index);
-			}
-		});
+		this.updateNumpadView();
 	}
 
 	/**
@@ -441,6 +380,100 @@ export class GameManager {
 		} else {
 			this.showNumpad(index);
 		}
+	}
+
+	private handleNumpadValue(value: number, asNote: boolean): void {
+		if (this.selectedCellIndex === null) return;
+		if (this.isNumberComplete(value)) return;
+
+		if (asNote) {
+			this.toggleNote(this.selectedCellIndex, value);
+		} else {
+			this.updateCell(this.selectedCellIndex, value);
+		}
+	}
+
+	private handleNumpadClear(clearNotesOnly: boolean): void {
+		if (this.selectedCellIndex === null) return;
+
+		if (clearNotesOnly) {
+			this.clearNotes(this.selectedCellIndex);
+			return;
+		}
+
+		this.updateCell(this.selectedCellIndex, null);
+		this.clearNotes(this.selectedCellIndex);
+	}
+
+	private updateBoardView(): void {
+		this.boardComponent.update(this.buildBoardView());
+	}
+
+	private updateNumpadView(): void {
+		this.numpadComponent.update(this.buildNumpadView());
+	}
+
+	private buildBoardView(): BoardViewState {
+		const highlightedValue = this.highlightedValue;
+		return {
+			cells: this.boardState.map((value, index) => {
+				const notes = this.notesState[index] || [];
+				const isGiven = this.givenCells.has(index);
+				const isFocused = this.focusedCellIndex === index;
+				const isSelected =
+					this.focusedCellIsEditable && this.focusedCellIndex === index;
+				const isMatching =
+					highlightedValue !== null && value === highlightedValue;
+
+				return {
+					index,
+					value,
+					notes,
+					isGiven,
+					isUserInput: value !== null && !isGiven,
+					isInvalid: this.invalidIndices.has(index),
+					isFocused,
+					isSelected,
+					isMatching,
+					isHinted: this.hintCells.has(index),
+				};
+			}),
+		};
+	}
+
+	private buildNumpadView(): NumpadViewState {
+		return {
+			isVisible: this.numpadVisible,
+			notes:
+				this.selectedCellIndex !== null
+					? this.notesState[this.selectedCellIndex] || []
+					: [],
+			completedValues: this.getCompletedValues(),
+		};
+	}
+
+	private getCompletedValues(): number[] {
+		const counts = new Array(10).fill(0);
+		this.boardState.forEach((val) => {
+			if (val !== null && val >= 1 && val <= 9) {
+				counts[val]++;
+			}
+		});
+
+		const completed: number[] = [];
+		for (let value = 1; value <= 9; value++) {
+			if (counts[value] >= 9) {
+				completed.push(value);
+			}
+		}
+		return completed;
+	}
+
+	private resetBoardUiState(): void {
+		this.invalidIndices.clear();
+		this.hintCells.clear();
+		this.numpadVisible = false;
+		this.clearFocus();
 	}
 
 	/**
@@ -537,6 +570,7 @@ export class GameManager {
 				this.givenCells.add(index);
 			}
 		});
+		this.resetBoardUiState();
 
 		// DO NOT save to IndexedDB - shareable puzzles are ephemeral
 		// DO NOT update currentGameId - this is not a persistent game
@@ -1100,13 +1134,8 @@ export class GameManager {
 			notes.splice(noteIndex, 1);
 		}
 
-		// Update visual representation
-		this.updateCellDisplay(cellIndex);
-
-		// Update numpad highlighting if this cell is selected
-		if (this.selectedCellIndex === cellIndex) {
-			this.updateNumpadHighlighting(cellIndex);
-		}
+		this.updateBoardView();
+		this.updateNumpadView();
 
 		// Save to database if we have a current game
 		if (this.currentGameId) {
@@ -1128,12 +1157,8 @@ export class GameManager {
 		if (this.givenCells.has(cellIndex)) return;
 
 		this.notesState[cellIndex] = [];
-		this.updateCellDisplay(cellIndex);
-
-		// Update numpad highlighting if this cell is selected
-		if (this.selectedCellIndex === cellIndex) {
-			this.updateNumpadHighlighting(cellIndex);
-		}
+		this.updateBoardView();
+		this.updateNumpadView();
 
 		// Save to database if we have a current game
 		if (this.currentGameId) {
@@ -1148,109 +1173,6 @@ export class GameManager {
 		}
 	}
 
-	/**
-	 * Update the visual display of a cell including notes
-	 */
-	private updateCellDisplay(cellIndex: number): void {
-		const cell = document.querySelector(
-			`[data-index="${cellIndex}"]`
-		) as HTMLElement;
-		if (!cell) return;
-
-		const value = this.boardState[cellIndex];
-		const notes = this.notesState[cellIndex] || [];
-
-		// Clear existing content
-		cell.innerHTML = "";
-
-		// Set the main cell value (same as original logic)
-		if (value !== null) {
-			cell.textContent = value.toString();
-		}
-
-		// Add notes as an absolute positioned element if there are any
-		if (notes.length > 0 && value === null) {
-			const notesContainer = document.createElement("div");
-			notesContainer.className = "cell-notes-display";
-			notesContainer.style.position = "absolute";
-			notesContainer.style.top = "2px";
-			notesContainer.style.left = "2px";
-			notesContainer.style.right = "2px";
-			notesContainer.style.fontSize = "0.6em";
-			notesContainer.style.display = "flex";
-			notesContainer.style.flexWrap = "wrap";
-			notesContainer.style.gap = "1px";
-			notesContainer.style.pointerEvents = "none";
-
-			notes.forEach((note) => {
-				const noteSpan = document.createElement("span");
-				noteSpan.textContent = note.toString();
-				noteSpan.style.opacity = "0.7";
-				notesContainer.appendChild(noteSpan);
-			});
-
-			cell.appendChild(notesContainer);
-		}
-	}
-
-	/**
-	 * Update numpad highlighting based on current cell's notes
-	 */
-	private updateNumpadHighlighting(cellIndex: number): void {
-		const numpadButtons = document.querySelectorAll(".numpad-btn[data-value]");
-		const notes = this.notesState[cellIndex];
-
-		numpadButtons.forEach((button) => {
-			const value = button.getAttribute("data-value");
-			if (value && value !== "clear") {
-				const numValue = parseInt(value);
-				if (numValue >= 1 && numValue <= 9) {
-					if (notes.includes(numValue)) {
-						button.classList.add("has-note");
-					} else {
-						button.classList.remove("has-note");
-					}
-				}
-			}
-		});
-	}
-
-	/**
-	 * Disable/enable numpad numbers when all 9 copies are placed
-	 */
-	private updateNumpadCompletionState(): void {
-		const counts = new Array(10).fill(0);
-		this.boardState.forEach((val) => {
-			if (val !== null && val >= 1 && val <= 9) {
-				counts[val]++;
-			}
-		});
-
-		const numpadButtons = document.querySelectorAll(".numpad-btn[data-value]");
-		numpadButtons.forEach((button) => {
-			const valueAttr = button.getAttribute("data-value");
-			const numValue = valueAttr ? parseInt(valueAttr, 10) : NaN;
-			const isNumber =
-				Number.isInteger(numValue) && numValue >= 1 && numValue <= 9;
-			const isComplete = isNumber && counts[numValue] >= 9;
-
-			if (isNumber) {
-				(button as HTMLButtonElement).disabled = isComplete;
-				button.classList.toggle("complete", isComplete);
-				if (isComplete) {
-					button.classList.remove("has-note");
-				}
-				if (isComplete) {
-					button.setAttribute("title", "All 9 placed");
-				} else {
-					button.removeAttribute("title");
-				}
-			} else {
-				(button as HTMLButtonElement).disabled = false;
-				button.classList.remove("complete");
-			}
-		});
-	}
 
 	/**
 	 * Check if a number already has 9 placements on the board
@@ -1275,42 +1197,8 @@ export class GameManager {
 		this.focusedCellIsEditable = isEditable;
 		this.selectedCellIndex = isEditable ? cellIndex : null;
 		this.highlightedValue = this.boardState[cellIndex] ?? null;
-
-		this.applyCellHighlights();
-	}
-
-	/**
-	 * Apply focus and matching-number styles
-	 */
-	private applyCellHighlights(): void {
-		const cells = document.querySelectorAll(".cell");
-		cells.forEach((el) =>
-			el.classList.remove("focused", "matching-value", "selected")
-		);
-
-		if (this.focusedCellIndex === null) {
-			return;
-		}
-
-		const focusedCell = document.querySelector(
-			`[data-index="${this.focusedCellIndex}"]`
-		) as HTMLElement | null;
-
-		if (focusedCell) {
-			focusedCell.classList.add("focused");
-			if (this.focusedCellIsEditable) {
-				focusedCell.classList.add("selected");
-			}
-		}
-
-		if (this.highlightedValue === null) return;
-
-		cells.forEach((el) => {
-			const idx = Number((el as HTMLElement).dataset.index);
-			if (this.boardState[idx] === this.highlightedValue) {
-				el.classList.add("matching-value");
-			}
-		});
+		this.updateBoardView();
+		this.updateNumpadView();
 	}
 
 	/**
@@ -1321,7 +1209,8 @@ export class GameManager {
 		this.highlightedValue = null;
 		this.focusedCellIsEditable = false;
 		this.selectedCellIndex = null;
-		this.applyCellHighlights();
+		this.updateBoardView();
+		this.updateNumpadView();
 	}
 
 	/**
@@ -1334,200 +1223,7 @@ export class GameManager {
 		} else {
 			this.highlightedValue = null;
 		}
-
-		this.applyCellHighlights();
-	}
-
-	/**
-	 * Setup universal numpad event listeners and functionality
-	 */
-	private setupNumpad(): void {
-		const numpad = document.getElementById("number-picker");
-		const numpadButtons = document.querySelectorAll(".numpad-btn");
-
-		if (!numpad) return;
-
-		// Handle numpad button clicks
-		numpadButtons.forEach((button) => {
-			let longPressTimer: number | null = null;
-			let isLongPress = false;
-
-			// Touch start - start long press timer
-			button.addEventListener("touchstart", (e) => {
-				if ((e.currentTarget as HTMLButtonElement).disabled) return;
-				isLongPress = false;
-				longPressTimer = window.setTimeout(() => {
-					isLongPress = true;
-					// Add haptic feedback for long press
-					if ("vibrate" in navigator) {
-						navigator.vibrate(100);
-					}
-
-					// Handle long press as note toggle
-					const target = e.target as HTMLElement;
-					const value = target.getAttribute("data-value");
-
-					if (
-						this.selectedCellIndex !== null &&
-						value &&
-						value !== "0" &&
-						value !== "clear" &&
-						value !== "delete"
-					) {
-						const numValue = parseInt(value);
-						if (numValue >= 1 && numValue <= 9) {
-							this.toggleNote(this.selectedCellIndex, numValue);
-						}
-					}
-				}, 500); // 500ms long press threshold
-			});
-
-			// Touch end - clear timer and handle regular tap if not long press
-			button.addEventListener("touchend", (e) => {
-				if ((e.currentTarget as HTMLButtonElement).disabled) return;
-
-				if (longPressTimer) {
-					clearTimeout(longPressTimer);
-					longPressTimer = null;
-				}
-
-				// If it wasn't a long press, handle as regular tap
-				if (!isLongPress) {
-					// Add haptic feedback on mobile devices
-					if ("vibrate" in navigator) {
-						navigator.vibrate(50);
-					}
-
-					const target = e.target as HTMLElement;
-					const value = target.getAttribute("data-value");
-
-					if (this.selectedCellIndex !== null) {
-						if (value === "clear" || value === "delete") {
-							// Clear value and notes
-							this.updateCell(this.selectedCellIndex, null);
-							this.clearNotes(this.selectedCellIndex);
-						} else if (value && value !== "0") {
-							// Only allow numbers 1-9 for Sudoku
-							const numValue = parseInt(value);
-							if (numValue >= 1 && numValue <= 9) {
-								// Regular tap - set value
-								this.updateCell(this.selectedCellIndex, numValue);
-							}
-						}
-					}
-				}
-
-				isLongPress = false;
-			});
-
-			// Mouse click for desktop - handle with shift key
-			button.addEventListener("click", (e) => {
-				if ((e.currentTarget as HTMLButtonElement).disabled) return;
-
-				// Skip if this was a touch event (handled above)
-				const mouseEvent = e as MouseEvent;
-				if (mouseEvent.detail === 0) return; // Touch events have detail = 0
-
-				// Add haptic feedback on mobile devices
-				if ("vibrate" in navigator) {
-					navigator.vibrate(50);
-				}
-
-				const target = e.target as HTMLElement;
-				const value = target.getAttribute("data-value");
-
-				if (this.selectedCellIndex !== null) {
-					if (value === "clear" || value === "delete") {
-						// Clear value and notes
-						this.updateCell(this.selectedCellIndex, null);
-						this.clearNotes(this.selectedCellIndex);
-					} else if (value && value !== "0") {
-						// Only allow numbers 1-9 for Sudoku
-						const numValue = parseInt(value);
-						if (numValue >= 1 && numValue <= 9) {
-							// Check if this is a note input (Shift key on desktop)
-							if ((e as MouseEvent).shiftKey) {
-								this.toggleNote(this.selectedCellIndex, numValue);
-							} else {
-								// Regular click - set value
-								this.updateCell(this.selectedCellIndex, numValue);
-							}
-						}
-					}
-				}
-
-				// Keep numpad open for continuous input
-			});
-		});
-
-		// Close numpad when clicking outside
-		document.addEventListener("click", (e) => {
-			const target = e.target as HTMLElement;
-			if (!numpad.contains(target) && !target.closest(".cell")) {
-				this.hideNumpad();
-			}
-		});
-
-		// Handle hardware keyboard input even when numpad is visible
-		document.addEventListener("keydown", (e) => {
-			if (this.selectedCellIndex === null) return;
-
-			const numericKey = this.getNumericKey(e);
-			if (numericKey !== null) {
-				e.preventDefault();
-				if (this.isNumberComplete(numericKey)) {
-					return;
-				}
-
-				if (e.shiftKey) {
-					// Shift+number = toggle note (desktop keyboard shortcut)
-					this.toggleNote(this.selectedCellIndex, numericKey);
-				} else {
-					this.updateCell(this.selectedCellIndex, numericKey);
-				}
-				return;
-			}
-
-			if (["Backspace", "Delete", " "].includes(e.key)) {
-				e.preventDefault();
-				if (e.shiftKey) {
-					// Shift+delete = clear notes only
-					this.clearNotes(this.selectedCellIndex);
-				} else {
-					// Regular delete = clear value and notes
-					this.updateCell(this.selectedCellIndex, null);
-					this.clearNotes(this.selectedCellIndex);
-				}
-				return;
-			}
-
-			if (e.key === "Escape") {
-				e.preventDefault();
-				this.hideNumpad();
-			}
-		});
-	}
-
-	/**
-	 * Normalize keyboard numeric input (supports shifted number keys)
-	 */
-	private getNumericKey(event: KeyboardEvent): number | null {
-		if (event.key >= "1" && event.key <= "9") {
-			return parseInt(event.key, 10);
-		}
-
-		// Handle shifted number row keys where e.key is "!"..."(" but code stays DigitX
-		const digitMatch = event.code.match(/^Digit([1-9])$/);
-		if (digitMatch) {
-			return parseInt(digitMatch[1], 10);
-		}
-
-		const numpadMatch = event.code.match(/^Numpad([1-9])$/);
-		if (numpadMatch) {
-			return parseInt(numpadMatch[1], 10);
-		}
-
-		return null;
+		this.updateBoardView();
 	}
 
 	/**
@@ -1535,47 +1231,23 @@ export class GameManager {
 	 */
 	private showNumpad(cellIndex: number): void {
 		this.setFocusedCell(cellIndex, true);
-
-		const numpad = document.getElementById("number-picker");
-		if (!numpad) return;
-
-		// Add class to body to trigger layout adjustments
-		document.body.classList.add("numpad-visible");
-
-		// Show numpad with animation
-		numpad.classList.remove("hidden");
-		requestAnimationFrame(() => {
-			numpad.classList.add("show");
-		});
-
-		// Update numpad highlighting based on current cell's notes
-		this.updateNumpadHighlighting(cellIndex);
+		this.numpadVisible = true;
+		this.updateNumpadView();
 	}
 
 	/**
 	 * Hide numpad
 	 */
 	private hideNumpad(options?: { preserveFocus?: boolean }): void {
-		const numpad = document.getElementById("number-picker");
-		if (!numpad) return;
-
-		// Remove numpad visibility
-		numpad.classList.remove("show");
-
-		// Remove layout adjustments
-		document.body.classList.remove("numpad-visible");
-
-		// Hide numpad after animation
-		setTimeout(() => {
-			numpad.classList.add("hidden");
-		}, 300);
+		this.numpadVisible = false;
+		this.updateNumpadView();
 
 		// Clear focus and selection unless we want to keep highlight on a given cell
 		if (options?.preserveFocus) {
 			this.selectedCellIndex = null;
 			if (this.focusedCellIndex !== null) {
 				this.focusedCellIsEditable = false;
-				this.applyCellHighlights();
+				this.updateBoardView();
 			} else {
 				this.clearFocus();
 			}
