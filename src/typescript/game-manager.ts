@@ -6,17 +6,19 @@ import type { GameRecord, CellRecord, ValidationResult } from "./types.js";
 import { DatabaseManager } from "./database.js";
 import { formatElapsedTime, generateUUID } from "./utils.js";
 import { modal } from "./modal.js";
-import { BoardComponent, BoardViewState } from "./ui/board-component.js";
 import {
-	MainMenuComponent,
-	MainMenuViewState,
-} from "./ui/main-menu-component.js";
-import { NumpadComponent, NumpadViewState } from "./ui/numpad-component.js";
+	BoardComponentContext,
+	BoardViewState,
+} from "./ui/board-component.js";
+import { HintViewState } from "./ui/hint-component.js";
+import { MainMenuViewState } from "./ui/main-menu-component.js";
 import {
-	ScoreboardComponent,
-	ScoreboardViewState,
-} from "./ui/scoreboard-component.js";
-import { SharePuzzleComponent } from "./ui/share-puzzle-component.js";
+	NumpadComponentContext,
+	NumpadViewState,
+} from "./ui/numpad-component.js";
+import { ScoreboardViewState } from "./ui/scoreboard-component.js";
+import { SharePuzzleViewState } from "./ui/share-puzzle-component.js";
+import { UIShell } from "./ui/ui-shell.js";
 
 export class GameManager {
 	private currentGameId: string | null = null;
@@ -50,48 +52,38 @@ export class GameManager {
 	private workerRequestId = 0;
 	private workerBusy = false;
 
-	private boardComponent: BoardComponent;
-	private numpadComponent: NumpadComponent;
-	private menuComponent: MainMenuComponent;
-	private scoreboardComponent: ScoreboardComponent;
-	private shareComponent: SharePuzzleComponent;
+	private uiShell: UIShell;
 	private menuState: MainMenuViewState;
 	private scoreboardState: ScoreboardViewState;
+	private shareState: SharePuzzleViewState;
+	private hintState: HintViewState;
 
-	constructor(
-		db: DatabaseManager,
-		containers: { board: HTMLElement; numpad: HTMLElement },
-		components: {
-			menu: MainMenuComponent;
-			scoreboard: ScoreboardComponent;
-			share: SharePuzzleComponent;
-		}
-	) {
+	constructor(db: DatabaseManager, uiShell: UIShell) {
 		this.db = db;
-		this.boardComponent = new BoardComponent();
-		this.numpadComponent = new NumpadComponent();
-		this.menuComponent = components.menu;
-		this.scoreboardComponent = components.scoreboard;
-		this.shareComponent = components.share;
+		this.uiShell = uiShell;
 		this.menuState = {
 			isVisible: true,
 			continueButton: { enabled: false, title: "No unfinished games available" },
 			scoreboardButton: { enabled: false, title: "No games available to view" },
 		};
 		this.scoreboardState = { isVisible: false, games: [], errorMessage: null };
+		this.shareState = { link: "", isVisible: true };
+		this.hintState = { isEnabled: true, label: "Hint" };
+	}
 
-		this.boardComponent.init({
+	getBoardContext(): BoardComponentContext {
+		return {
 			onCellSelect: (cellIndex) => this.handleCellSelection(cellIndex),
-		});
-		this.numpadComponent.init({
+		};
+	}
+
+	getNumpadContext(): NumpadComponentContext {
+		return {
 			onValueInput: (value) => this.handleNumpadValue(value, false),
 			onNoteToggle: (value) => this.handleNumpadValue(value, true),
 			onClear: (clearNotesOnly) => this.handleNumpadClear(clearNotesOnly),
 			onRequestClose: () => this.hideNumpad(),
-		});
-
-		this.boardComponent.mount(containers.board);
-		this.numpadComponent.mount(containers.numpad);
+		};
 	}
 
 	/**
@@ -379,19 +371,18 @@ export class GameManager {
 	 * Create and display the game board UI
 	 */
 	private async showGameBoard(): Promise<void> {
-		const startScreen = document.getElementById("start-screen");
-		const sudokuContainer = document.getElementById("sudoku-container");
-		if (!startScreen || !sudokuContainer) return;
-
 		// Hide start screen, show game
 		this.menuState = { ...this.menuState, isVisible: false };
-		this.menuComponent.update(this.menuState);
-		sudokuContainer.classList.remove("hidden");
+		this.scoreboardState = { ...this.scoreboardState, isVisible: false };
+		this.uiShell.showBoard();
+		this.uiShell.render({
+			menu: this.menuState,
+			scoreboard: this.scoreboardState,
+			hint: this.hintState,
+		});
 
 		// Update share link for the current game
 		this.updateShareView();
-		this.scoreboardState = { ...this.scoreboardState, isVisible: false };
-		this.scoreboardComponent.update(this.scoreboardState);
 
 		this.updateBoardView();
 
@@ -437,11 +428,11 @@ export class GameManager {
 	}
 
 	private updateBoardView(): void {
-		this.boardComponent.update(this.buildBoardView());
+		this.uiShell.render({ board: this.buildBoardView() });
 	}
 
 	private updateNumpadView(): void {
-		this.numpadComponent.update(this.buildNumpadView());
+		this.uiShell.render({ numpad: this.buildNumpadView() });
 	}
 
 	private buildBoardView(): BoardViewState {
@@ -536,16 +527,13 @@ export class GameManager {
 		// Hide numpad if visible
 		this.hideNumpad();
 
-		const sudokuContainer = document.getElementById("sudoku-container");
-
-		if (sudokuContainer) {
-			sudokuContainer.classList.add("hidden");
-		}
 		this.scoreboardState = { ...this.scoreboardState, isVisible: false };
-		this.scoreboardComponent.update(this.scoreboardState);
-
-		// Clear share link
-		this.shareComponent.update({ link: "", isVisible: true });
+		this.shareState = { ...this.shareState, link: "", isVisible: true };
+		this.uiShell.showMenu();
+		this.uiShell.render({
+			scoreboard: this.scoreboardState,
+			share: this.shareState,
+		});
 
 		// Clear URL parameters
 		const url = new URL(window.location.href);
@@ -595,7 +583,8 @@ export class GameManager {
 		// DO NOT update currentGameId - this is not a persistent game
 
 		// Clear share link for shareable puzzles (they don't have persistent gameId)
-		this.shareComponent.update({ link: "", isVisible: true });
+		this.shareState = { ...this.shareState, link: "", isVisible: true };
+		this.uiShell.render({ share: this.shareState });
 
 		// Update URL to include seed and difficulty parameters
 		const url = new URL(window.location.href);
@@ -637,7 +626,8 @@ export class GameManager {
 	private updateShareView(): void {
 		// Only show share link for regular games with currentGameId
 		if (!this.currentGameId) {
-			this.shareComponent.update({ link: "", isVisible: true });
+			this.shareState = { ...this.shareState, link: "", isVisible: true };
+			this.uiShell.render({ share: this.shareState });
 			return;
 		}
 
@@ -654,7 +644,8 @@ export class GameManager {
 		url.searchParams.set("seed", seed.toString());
 		url.searchParams.set("difficulty", difficulty.toString());
 
-		this.shareComponent.update({ link: url.toString(), isVisible: true });
+		this.shareState = { ...this.shareState, link: url.toString(), isVisible: true };
+		this.uiShell.render({ share: this.shareState });
 	}
 
 	/**
@@ -795,10 +786,7 @@ export class GameManager {
 	 * Update the timer display in the UI
 	 */
 	private updateTimerDisplay(): void {
-		const timerDisplay = document.getElementById("timer-display");
-		if (!timerDisplay) return;
-
-		timerDisplay.textContent = formatElapsedTime(this.elapsedTime);
+		this.uiShell.updateTimerDisplay(formatElapsedTime(this.elapsedTime));
 	}
 
 	/**
@@ -1106,8 +1094,7 @@ export class GameManager {
 					: "No games available to view",
 			},
 		};
-
-		this.menuComponent.update(this.menuState);
+		this.uiShell.render({ menu: this.menuState });
 	}
 
 	/**
@@ -1255,21 +1242,19 @@ export class GameManager {
 	 * Show the scoreboard page with all game history
 	 */
 	async showScoreboard(): Promise<void> {
-		const sudokuContainer = document.getElementById("sudoku-container");
-
 		// Hide other screens, show scoreboard
 		this.menuState = { ...this.menuState, isVisible: false };
-		this.menuComponent.update(this.menuState);
-		if (sudokuContainer) {
-			sudokuContainer.classList.add("hidden");
-		}
+		this.uiShell.showScoreboard();
 		this.scoreboardState = {
 			...this.scoreboardState,
 			isVisible: true,
 			games: [],
 			errorMessage: null,
 		};
-		this.scoreboardComponent.update(this.scoreboardState);
+		this.uiShell.render({
+			menu: this.menuState,
+			scoreboard: this.scoreboardState,
+		});
 
 		// Load and display all games
 		await this.loadScoreboardData();
@@ -1286,7 +1271,7 @@ export class GameManager {
 				games: allGames,
 				errorMessage: null,
 			};
-			this.scoreboardComponent.update(this.scoreboardState);
+			this.uiShell.render({ scoreboard: this.scoreboardState });
 		} catch (error) {
 			console.error("Failed to load scoreboard data:", error);
 			this.scoreboardState = {
@@ -1294,7 +1279,7 @@ export class GameManager {
 				games: [],
 				errorMessage: "Failed to load game history. Please try again.",
 			};
-			this.scoreboardComponent.update(this.scoreboardState);
+			this.uiShell.render({ scoreboard: this.scoreboardState });
 		}
 	}
 
@@ -1329,14 +1314,6 @@ export class GameManager {
 			// Load game state from database
 			await this.loadGameState();
 
-			// Hide scoreboard and show game
-			const scoreboardContainer = document.getElementById(
-				"scoreboard-container"
-			);
-			if (scoreboardContainer) {
-				scoreboardContainer.classList.add("hidden");
-			}
-
 			// Update URL and show game
 			this.updateURL();
 			await this.showGameBoard();
@@ -1352,14 +1329,6 @@ export class GameManager {
 	 */
 	async playAgain(seed: number, difficulty: number): Promise<void> {
 		try {
-			// Hide scoreboard before starting new game
-			const scoreboardContainer = document.getElementById(
-				"scoreboard-container"
-			);
-			if (scoreboardContainer) {
-				scoreboardContainer.classList.add("hidden");
-			}
-
 			await this.startNewGameFromSeed(seed, difficulty);
 		} catch (error) {
 			console.error("Failed to start new game with seed:", error);
@@ -1372,14 +1341,6 @@ export class GameManager {
 	 */
 	async playAgainDifficulty(difficulty: number): Promise<void> {
 		try {
-			// Hide scoreboard before starting new game
-			const scoreboardContainer = document.getElementById(
-				"scoreboard-container"
-			);
-			if (scoreboardContainer) {
-				scoreboardContainer.classList.add("hidden");
-			}
-
 			await this.startNewGame(difficulty);
 		} catch (error) {
 			console.error("Failed to start new game:", error);
