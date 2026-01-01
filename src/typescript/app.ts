@@ -94,7 +94,6 @@ async function initializeApp(): Promise<void> {
 /**
  * Setup all event handlers for the application
  */
-async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 async function setupEventHandlers(
 	gameManager: GameManager,
 	mainMenuComponent: MainMenuComponent,
