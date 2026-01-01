@@ -14,11 +14,7 @@ import { DatabaseManager } from "./database.js";
 import { GameManager } from "./game-manager.js";
 import { formatElapsedTime, getShareParams } from "./utils.js";
 import { initializeWasm } from "./wasm-loader.js";
-import { DifficultySelectionComponent } from "./ui/difficulty-selection-component.js";
-import { HintComponent } from "./ui/hint-component.js";
-import { MainMenuComponent } from "./ui/main-menu-component.js";
-import { ScoreboardComponent } from "./ui/scoreboard-component.js";
-import { SharePuzzleComponent } from "./ui/share-puzzle-component.js";
+import { UIShell } from "./ui/ui-shell.js";
 
 /**
  * Application initialization and main entry point
@@ -36,26 +32,38 @@ async function initializeApp(): Promise<void> {
 		}
 
 		const startScreen = document.getElementById("start-screen");
+		const sudokuContainer = document.getElementById("sudoku-container");
 		const scoreboardContainer = document.getElementById("scoreboard-container");
 		const shareContainer = document.getElementById("share-container");
 		const hintContainer = document.getElementById("hint-container");
+		const timerDisplay = document.getElementById("timer-display");
+		const backButton = document.getElementById("btn-back");
 
-		if (!startScreen || !scoreboardContainer || !shareContainer || !hintContainer) {
+		if (
+			!startScreen ||
+			!sudokuContainer ||
+			!scoreboardContainer ||
+			!shareContainer ||
+			!hintContainer ||
+			!timerDisplay
+		) {
 			throw new Error("Sudoku UI containers are missing from the page.");
 		}
 
-		const mainMenuComponent = new MainMenuComponent();
-		const scoreboardComponent = new ScoreboardComponent();
-		const shareComponent = new SharePuzzleComponent();
-		const hintComponent = new HintComponent();
-		const difficultyComponent = new DifficultySelectionComponent();
+		const uiShell = new UIShell({
+			startScreen,
+			sudokuContainer,
+			scoreboardContainer,
+			board: boardContainer,
+			numpad: numpadContainer,
+			shareContainer,
+			hintContainer,
+			timerDisplay,
+			backButton,
+		});
 
 		// Initialize game manager
-		const gameManager = new GameManager(
-			db,
-			{ board: boardContainer, numpad: numpadContainer },
-			{ menu: mainMenuComponent, scoreboard: scoreboardComponent, share: shareComponent }
-		);
+		const gameManager = new GameManager(db, uiShell);
 
 		// Make gameManager available globally for onclick handlers
 		(window as any).gameManager = gameManager;
@@ -66,15 +74,33 @@ async function initializeApp(): Promise<void> {
 		}
 
 		// Setup UI components
-		await setupEventHandlers(
-			gameManager,
-			mainMenuComponent,
-			scoreboardComponent,
-			shareComponent,
-			hintComponent,
-			difficultyComponent,
-			{ startScreen, scoreboardContainer, shareContainer, hintContainer }
-		);
+		uiShell.initialize({
+			menu: {
+				onStart: async () => {
+					const difficulty = await uiShell.requestDifficultySelection();
+					if (difficulty !== null) {
+						gameManager.startNewGame(difficulty);
+					}
+				},
+				onContinue: () => gameManager.continueLastGame(),
+				onScoreboard: () => gameManager.showScoreboard(),
+			},
+			scoreboard: {
+				onBack: () => gameManager.returnToMenu(),
+				onContinue: (gameId) => gameManager.continueGame(gameId),
+				onTryAgain: (seed, difficulty) =>
+					gameManager.playAgain(seed, difficulty),
+				onTryAgainDifficulty: (difficulty) =>
+					gameManager.playAgainDifficulty(difficulty),
+				formatElapsedTime,
+			},
+			board: gameManager.getBoardContext(),
+			numpad: gameManager.getNumpadContext(),
+			hint: {
+				onConfirmHint: () => gameManager.showHint(),
+			},
+			onBackToMenu: () => gameManager.returnToMenu(),
+		});
 
 		// Update button states on initialization
 		await gameManager.updateMenuState(true);
@@ -89,67 +115,6 @@ async function initializeApp(): Promise<void> {
 			"Failed to initialize the game. Please refresh the page and try again."
 		);
 	}
-}
-
-/**
- * Setup all event handlers for the application
- */
-async function setupEventHandlers(
-	gameManager: GameManager,
-	mainMenuComponent: MainMenuComponent,
-	scoreboardComponent: ScoreboardComponent,
-	shareComponent: SharePuzzleComponent,
-	hintComponent: HintComponent,
-	difficultyComponent: DifficultySelectionComponent,
-	containers: {
-		startScreen: HTMLElement;
-		scoreboardContainer: HTMLElement;
-		shareContainer: HTMLElement;
-		hintContainer: HTMLElement;
-	}
-): Promise<void> {
-	const btnBack = document.getElementById("btn-back");
-	mainMenuComponent.init({
-		onStart: async () => {
-			const difficulty = await difficultyComponent.requestSelection();
-			if (difficulty !== null) {
-				gameManager.startNewGame(difficulty);
-			}
-		},
-		onContinue: () => gameManager.continueLastGame(),
-		onScoreboard: () => gameManager.showScoreboard(),
-	});
-	mainMenuComponent.mount(containers.startScreen);
-
-	scoreboardComponent.init({
-		onBack: () => gameManager.returnToMenu(),
-		onContinue: (gameId) => gameManager.continueGame(gameId),
-		onTryAgain: (seed, difficulty) => gameManager.playAgain(seed, difficulty),
-		onTryAgainDifficulty: (difficulty) =>
-			gameManager.playAgainDifficulty(difficulty),
-		formatElapsedTime,
-	});
-	scoreboardComponent.mount(containers.scoreboardContainer);
-
-	shareComponent.init({});
-	shareComponent.mount(containers.shareContainer);
-
-	hintComponent.init({
-		onConfirmHint: () => gameManager.showHint(),
-	});
-	hintComponent.mount(containers.hintContainer);
-	hintComponent.update({ isEnabled: true, label: "Hint" });
-
-	difficultyComponent.init({});
-	difficultyComponent.mount(document.body);
-
-	if (btnBack) {
-		btnBack.addEventListener(
-			"click",
-			async () => await gameManager.returnToMenu()
-		);
-	}
-
 }
 
 /**
