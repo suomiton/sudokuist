@@ -25,8 +25,17 @@ async function initializeApp(): Promise<void> {
 		const db = new DatabaseManager();
 		await db.initialize();
 
+		const boardContainer = document.getElementById("sudoku-board");
+		const numpadContainer = document.getElementById("number-picker");
+		if (!boardContainer || !numpadContainer) {
+			throw new Error("Sudoku UI containers are missing from the page.");
+		}
+
 		// Initialize game manager
-		const gameManager = new GameManager(db);
+		const gameManager = new GameManager(db, {
+			board: boardContainer,
+			numpad: numpadContainer,
+		});
 
 		// Make gameManager available globally for onclick handlers
 		(window as any).gameManager = gameManager;
