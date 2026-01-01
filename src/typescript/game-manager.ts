@@ -4,10 +4,19 @@
 
 import type { GameRecord, CellRecord, ValidationResult } from "./types.js";
 import { DatabaseManager } from "./database.js";
-import { generateUUID } from "./utils.js";
+import { formatElapsedTime, generateUUID } from "./utils.js";
 import { modal } from "./modal.js";
 import { BoardComponent, BoardViewState } from "./ui/board-component.js";
+import {
+	MainMenuComponent,
+	MainMenuViewState,
+} from "./ui/main-menu-component.js";
 import { NumpadComponent, NumpadViewState } from "./ui/numpad-component.js";
+import {
+	ScoreboardComponent,
+	ScoreboardViewState,
+} from "./ui/scoreboard-component.js";
+import { SharePuzzleComponent } from "./ui/share-puzzle-component.js";
 
 export class GameManager {
 	private currentGameId: string | null = null;
@@ -43,14 +52,33 @@ export class GameManager {
 
 	private boardComponent: BoardComponent;
 	private numpadComponent: NumpadComponent;
+	private menuComponent: MainMenuComponent;
+	private scoreboardComponent: ScoreboardComponent;
+	private shareComponent: SharePuzzleComponent;
+	private menuState: MainMenuViewState;
+	private scoreboardState: ScoreboardViewState;
 
 	constructor(
 		db: DatabaseManager,
-		containers: { board: HTMLElement; numpad: HTMLElement }
+		containers: { board: HTMLElement; numpad: HTMLElement },
+		components: {
+			menu: MainMenuComponent;
+			scoreboard: ScoreboardComponent;
+			share: SharePuzzleComponent;
+		}
 	) {
 		this.db = db;
 		this.boardComponent = new BoardComponent();
 		this.numpadComponent = new NumpadComponent();
+		this.menuComponent = components.menu;
+		this.scoreboardComponent = components.scoreboard;
+		this.shareComponent = components.share;
+		this.menuState = {
+			isVisible: true,
+			continueButton: { enabled: false, title: "No unfinished games available" },
+			scoreboardButton: { enabled: false, title: "No games available to view" },
+		};
+		this.scoreboardState = { isVisible: false, games: [], errorMessage: null };
 
 		this.boardComponent.init({
 			onCellSelect: (cellIndex) => this.handleCellSelection(cellIndex),
@@ -262,7 +290,7 @@ export class GameManager {
 			await this.markGameAsFinished();
 
 			// Show completion modal with time and hints used
-			const timeText = this.formatTime(this.elapsedTime);
+			const timeText = formatElapsedTime(this.elapsedTime);
 			const hintsText =
 				this.hintsUsed === 0
 					? "without using any hints"
@@ -356,11 +384,14 @@ export class GameManager {
 		if (!startScreen || !sudokuContainer) return;
 
 		// Hide start screen, show game
-		startScreen.classList.add("hidden");
+		this.menuState = { ...this.menuState, isVisible: false };
+		this.menuComponent.update(this.menuState);
 		sudokuContainer.classList.remove("hidden");
 
 		// Update share link for the current game
-		this.updateShareLink();
+		this.updateShareView();
+		this.scoreboardState = { ...this.scoreboardState, isVisible: false };
+		this.scoreboardComponent.update(this.scoreboardState);
 
 		this.updateBoardView();
 
@@ -505,27 +536,16 @@ export class GameManager {
 		// Hide numpad if visible
 		this.hideNumpad();
 
-		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
-		const scoreboardContainer = document.getElementById("scoreboard-container");
 
-		if (startScreen) {
-			// Hide all other screens
-			if (sudokuContainer) {
-				sudokuContainer.classList.add("hidden");
-			}
-			if (scoreboardContainer) {
-				scoreboardContainer.classList.add("hidden");
-			}
-			// Show start screen
-			startScreen.classList.remove("hidden");
+		if (sudokuContainer) {
+			sudokuContainer.classList.add("hidden");
 		}
+		this.scoreboardState = { ...this.scoreboardState, isVisible: false };
+		this.scoreboardComponent.update(this.scoreboardState);
 
 		// Clear share link
-		const shareLink = document.getElementById("share-link") as HTMLInputElement;
-		if (shareLink) {
-			shareLink.value = "";
-		}
+		this.shareComponent.update({ link: "", isVisible: true });
 
 		// Clear URL parameters
 		const url = new URL(window.location.href);
@@ -539,8 +559,7 @@ export class GameManager {
 		this.hintsUsed = 0;
 
 		// Update button states
-		await this.updateContinueButtonState();
-		await this.updateScoreboardButtonState();
+		await this.updateMenuState(true);
 	}
 
 	/**
@@ -576,10 +595,7 @@ export class GameManager {
 		// DO NOT update currentGameId - this is not a persistent game
 
 		// Clear share link for shareable puzzles (they don't have persistent gameId)
-		const shareLink = document.getElementById("share-link") as HTMLInputElement;
-		if (shareLink) {
-			shareLink.value = "";
-		}
+		this.shareComponent.update({ link: "", isVisible: true });
 
 		// Update URL to include seed and difficulty parameters
 		const url = new URL(window.location.href);
@@ -618,14 +634,10 @@ export class GameManager {
 	/**
 	 * Generate and populate the share link for the current puzzle
 	 */
-	private updateShareLink(): void {
-		const shareLink = document.getElementById("share-link") as HTMLInputElement;
-
-		if (!shareLink) return;
-
+	private updateShareView(): void {
 		// Only show share link for regular games with currentGameId
 		if (!this.currentGameId) {
-			shareLink.value = "";
+			this.shareComponent.update({ link: "", isVisible: true });
 			return;
 		}
 
@@ -642,7 +654,7 @@ export class GameManager {
 		url.searchParams.set("seed", seed.toString());
 		url.searchParams.set("difficulty", difficulty.toString());
 
-		shareLink.value = url.toString();
+		this.shareComponent.update({ link: url.toString(), isVisible: true });
 	}
 
 	/**
@@ -786,18 +798,7 @@ export class GameManager {
 		const timerDisplay = document.getElementById("timer-display");
 		if (!timerDisplay) return;
 
-		// Format elapsed time as HH:MM:SS
-		const totalSeconds = this.elapsedTime;
-		const hours = Math.floor(totalSeconds / 3600);
-		const minutes = Math.floor((totalSeconds % 3600) / 60);
-		const seconds = totalSeconds % 60;
-
-		// Format with leading zeros
-		const formatted = `${hours.toString().padStart(2, "0")}:${minutes
-			.toString()
-			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-
-		timerDisplay.textContent = formatted;
+		timerDisplay.textContent = formatElapsedTime(this.elapsedTime);
 	}
 
 	/**
@@ -978,20 +979,6 @@ export class GameManager {
 	}
 
 	/**
-	 * Format time in seconds to HH:MM:SS string
-	 */
-	private formatTime(totalSeconds: number): string {
-		const hours = Math.floor(totalSeconds / 3600);
-		const minutes = Math.floor((totalSeconds % 3600) / 60);
-		const seconds = totalSeconds % 60;
-
-		// Format with leading zeros
-		return `${hours.toString().padStart(2, "0")}:${minutes
-			.toString()
-			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-	}
-
-	/**
 	 * Build a human-readable progress details string from generator metadata
 	 */
 	private formatProgressDetails(meta: any): string {
@@ -1093,26 +1080,34 @@ export class GameManager {
 	}
 
 	/**
-	 * Update the continue button state based on whether there's an unfinished game
+	 * Refresh menu button states and visibility based on saved games.
 	 */
-	async updateContinueButtonState(): Promise<void> {
-		const btnContinue = document.getElementById(
-			"btn-continue"
-		) as HTMLButtonElement;
-		if (!btnContinue) return;
-
+	async updateMenuState(isVisible: boolean): Promise<void> {
 		const lastGame = await this.db.getLastGame();
+		const allGames = await this.db.getAllGames();
 
-		// Always show continue button, but disable it if there's no unfinished game
-		if (lastGame && !lastGame.isFinished) {
-			btnContinue.disabled = false;
-			btnContinue.style.opacity = "1";
-			btnContinue.title = "Continue your last game";
-		} else {
-			btnContinue.disabled = true;
-			btnContinue.style.opacity = "0.5";
-			btnContinue.title = "No unfinished games available";
-		}
+		const continueEnabled = Boolean(lastGame && !lastGame.isFinished);
+		const scoreboardEnabled = allGames.length > 0;
+
+		this.menuState = {
+			isVisible,
+			continueButton: {
+				enabled: continueEnabled,
+				title: continueEnabled
+					? "Continue your last game"
+					: "No unfinished games available",
+			},
+			scoreboardButton: {
+				enabled: scoreboardEnabled,
+				title: scoreboardEnabled
+					? `View your ${allGames.length} game${
+							allGames.length === 1 ? "" : "s"
+					  }`
+					: "No games available to view",
+			},
+		};
+
+		this.menuComponent.update(this.menuState);
 	}
 
 	/**
@@ -1257,46 +1252,24 @@ export class GameManager {
 	}
 
 	/**
-	 * Update the scoreboard button state based on whether there are games in the database
-	 */
-	async updateScoreboardButtonState(): Promise<void> {
-		const btnScoreboard = document.getElementById(
-			"btn-scoreboard"
-		) as HTMLButtonElement;
-		if (!btnScoreboard) return;
-
-		const allGames = await this.db.getAllGames();
-
-		// Always show scoreboard button, but disable it if there are no games
-		if (allGames.length > 0) {
-			btnScoreboard.disabled = false;
-			btnScoreboard.style.opacity = "1";
-			btnScoreboard.title = `View your ${allGames.length} game${
-				allGames.length === 1 ? "" : "s"
-			}`;
-		} else {
-			btnScoreboard.disabled = true;
-			btnScoreboard.style.opacity = "0.5";
-			btnScoreboard.title = "No games available to view";
-		}
-	}
-
-	/**
 	 * Show the scoreboard page with all game history
 	 */
 	async showScoreboard(): Promise<void> {
-		const startScreen = document.getElementById("start-screen");
 		const sudokuContainer = document.getElementById("sudoku-container");
-		const scoreboardContainer = document.getElementById("scoreboard-container");
-
-		if (!startScreen || !scoreboardContainer) return;
 
 		// Hide other screens, show scoreboard
-		startScreen.classList.add("hidden");
+		this.menuState = { ...this.menuState, isVisible: false };
+		this.menuComponent.update(this.menuState);
 		if (sudokuContainer) {
 			sudokuContainer.classList.add("hidden");
 		}
-		scoreboardContainer.classList.remove("hidden");
+		this.scoreboardState = {
+			...this.scoreboardState,
+			isVisible: true,
+			games: [],
+			errorMessage: null,
+		};
+		this.scoreboardComponent.update(this.scoreboardState);
 
 		// Load and display all games
 		await this.loadScoreboardData();
@@ -1306,180 +1279,22 @@ export class GameManager {
 	 * Load and display all games in the scoreboard
 	 */
 	private async loadScoreboardData(): Promise<void> {
-		const scoreboardContent = document.getElementById("scoreboard-content");
-		if (!scoreboardContent) return;
-
-		// Clear existing content
-		scoreboardContent.innerHTML = "";
-
 		try {
 			const allGames = await this.db.getAllGames();
-
-			if (allGames.length === 0) {
-				// Show empty state
-				const emptyState = document.createElement("div");
-				emptyState.className = "scoreboard-empty";
-				emptyState.innerHTML = `
-					<h3>No Games Yet</h3>
-					<p>Start playing to see your game history here!</p>
-				`;
-				scoreboardContent.appendChild(emptyState);
-				return;
-			}
-
-			// Create table
-			const tableContainer = document.createElement("div");
-			tableContainer.className = "scoreboard-table";
-
-			const table = document.createElement("table");
-
-			// Create table header
-			const thead = document.createElement("thead");
-			thead.innerHTML = `
-				<tr>
-					<th>Difficulty</th>
-					<th>Status</th>
-					<th>Started</th>
-					<th>Time Played</th>
-					<th>Hints</th>
-					<th>Action</th>
-				</tr>
-			`;
-			table.appendChild(thead);
-
-			// Create table body
-			const tbody = document.createElement("tbody");
-
-			for (const game of allGames) {
-				const row = await this.createGameRow(game);
-				tbody.appendChild(row);
-			}
-
-			table.appendChild(tbody);
-			tableContainer.appendChild(table);
-			scoreboardContent.appendChild(tableContainer);
+			this.scoreboardState = {
+				isVisible: true,
+				games: allGames,
+				errorMessage: null,
+			};
+			this.scoreboardComponent.update(this.scoreboardState);
 		} catch (error) {
 			console.error("Failed to load scoreboard data:", error);
-			scoreboardContent.innerHTML = `
-				<div class="scoreboard-empty">
-					<h3>Error Loading Games</h3>
-					<p>Failed to load game history. Please try again.</p>
-				</div>
-			`;
-		}
-	}
-
-	/**
-	 * Create a table row for a game entry
-	 */
-	private async createGameRow(game: GameRecord): Promise<HTMLElement> {
-		const row = document.createElement("tr");
-
-		// Get difficulty level (default to 1 if not set)
-		const difficulty = game.difficulty || 1;
-
-		// Create stars HTML similar to modal
-		let starsHtml = "";
-		for (let i = 1; i <= 5; i++) {
-			const starClass = i <= difficulty ? "star filled" : "star empty";
-			starsHtml += `<span class="${starClass}">★</span>`;
-		}
-
-		// Format start date/time using user's locale
-		const startDate = new Date(game.created);
-		const userLocale = navigator.language || "en-US";
-		const dateStr = startDate.toLocaleDateString(userLocale, {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-		});
-		const timeStr = startDate.toLocaleTimeString(userLocale, {
-			hour: "2-digit",
-			minute: "2-digit",
-		});
-
-		// Format elapsed time
-		const elapsedTimeStr = this.formatTime(game.elapsedTime || 0);
-
-		// Determine status
-		const isFinished = game.isFinished || false;
-		const statusText = isFinished ? "Completed" : "Ongoing";
-		const statusClass = isFinished ? "completed" : "ongoing";
-
-		// Hints used
-		const hintsUsed = game.hintsUsed || 0;
-
-		// Create action button
-		const actionButton = await this.createGameActionButton(game);
-
-		row.innerHTML = `
-			<td>
-				<div class="difficulty-cell">
-					<div class="difficulty-stars">${starsHtml}</div>
-				</div>
-			</td>
-			<td>
-				<span class="status-badge ${statusClass}">${statusText}</span>
-			</td>
-			<td>${dateStr}<br><small>${timeStr}</small></td>
-			<td>${elapsedTimeStr}</td>
-			<td>${hintsUsed}</td>
-			<td class="action-cell">${actionButton}</td>
-		`;
-
-		// Add event listeners for action buttons
-		const actionBtn = row.querySelector(".game-action-btn");
-		if (actionBtn) {
-			actionBtn.addEventListener("click", (e) => {
-				const target = e.target as HTMLElement;
-				const action = target.getAttribute("data-action");
-
-				switch (action) {
-					case "continue":
-						const gameId = target.getAttribute("data-game-id");
-						if (gameId) {
-							this.continueGame(gameId);
-						}
-						break;
-					case "try-again":
-						const seed = target.getAttribute("data-seed");
-						const difficulty = target.getAttribute("data-difficulty");
-						if (seed && difficulty) {
-							this.playAgain(parseInt(seed), parseInt(difficulty));
-						}
-						break;
-					case "try-again-difficulty":
-						const difficultyOnly = target.getAttribute("data-difficulty");
-						if (difficultyOnly) {
-							this.playAgainDifficulty(parseInt(difficultyOnly));
-						}
-						break;
-				}
-			});
-		}
-
-		return row;
-	}
-
-	/**
-	 * Create action button HTML for a game entry
-	 */
-	private async createGameActionButton(game: GameRecord): Promise<string> {
-		const isFinished = game.isFinished || false;
-
-		if (isFinished) {
-			// For completed games, always offer "Try Again"
-			if (game.seed && game.difficulty) {
-				// Use the exact same seed to recreate the identical puzzle
-				return `<button class="game-action-btn try-again" data-action="try-again" data-seed="${game.seed}" data-difficulty="${game.difficulty}">Try Again</button>`;
-			} else {
-				// For legacy completed games without seed, offer new game with same difficulty
-				const difficulty = game.difficulty || 1;
-				return `<button class="game-action-btn try-again" data-action="try-again-difficulty" data-difficulty="${difficulty}">Try Again</button>`;
-			}
-		} else {
-			// For ongoing games, offer "Continue"
-			return `<button class="game-action-btn continue" data-action="continue" data-game-id="${game.id}">Continue</button>`;
+			this.scoreboardState = {
+				isVisible: true,
+				games: [],
+				errorMessage: "Failed to load game history. Please try again.",
+			};
+			this.scoreboardComponent.update(this.scoreboardState);
 		}
 	}
 
@@ -1619,7 +1434,6 @@ export class GameManager {
 		console.log("Test games created!");
 
 		// Update button states
-		await this.updateContinueButtonState();
-		await this.updateScoreboardButtonState();
+		await this.updateMenuState(this.menuState.isVisible);
 	}
 }

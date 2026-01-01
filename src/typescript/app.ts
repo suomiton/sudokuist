@@ -12,9 +12,13 @@
 
 import { DatabaseManager } from "./database.js";
 import { GameManager } from "./game-manager.js";
-import { getShareParams } from "./utils.js";
+import { formatElapsedTime, getShareParams } from "./utils.js";
 import { initializeWasm } from "./wasm-loader.js";
-import { modal } from "./modal.js";
+import { DifficultySelectionComponent } from "./ui/difficulty-selection-component.js";
+import { HintComponent } from "./ui/hint-component.js";
+import { MainMenuComponent } from "./ui/main-menu-component.js";
+import { ScoreboardComponent } from "./ui/scoreboard-component.js";
+import { SharePuzzleComponent } from "./ui/share-puzzle-component.js";
 
 /**
  * Application initialization and main entry point
@@ -31,11 +35,27 @@ async function initializeApp(): Promise<void> {
 			throw new Error("Sudoku UI containers are missing from the page.");
 		}
 
+		const startScreen = document.getElementById("start-screen");
+		const scoreboardContainer = document.getElementById("scoreboard-container");
+		const shareContainer = document.getElementById("share-container");
+		const hintContainer = document.getElementById("hint-container");
+
+		if (!startScreen || !scoreboardContainer || !shareContainer || !hintContainer) {
+			throw new Error("Sudoku UI containers are missing from the page.");
+		}
+
+		const mainMenuComponent = new MainMenuComponent();
+		const scoreboardComponent = new ScoreboardComponent();
+		const shareComponent = new SharePuzzleComponent();
+		const hintComponent = new HintComponent();
+		const difficultyComponent = new DifficultySelectionComponent();
+
 		// Initialize game manager
-		const gameManager = new GameManager(db, {
-			board: boardContainer,
-			numpad: numpadContainer,
-		});
+		const gameManager = new GameManager(
+			db,
+			{ board: boardContainer, numpad: numpadContainer },
+			{ menu: mainMenuComponent, scoreboard: scoreboardComponent, share: shareComponent }
+		);
 
 		// Make gameManager available globally for onclick handlers
 		(window as any).gameManager = gameManager;
@@ -45,12 +65,19 @@ async function initializeApp(): Promise<void> {
 			(window as any).createTestGames = () => gameManager.createTestGames();
 		}
 
-		// Setup event handlers
-		await setupEventHandlers(gameManager);
+		// Setup UI components
+		await setupEventHandlers(
+			gameManager,
+			mainMenuComponent,
+			scoreboardComponent,
+			shareComponent,
+			hintComponent,
+			difficultyComponent,
+			{ startScreen, scoreboardContainer, shareContainer, hintContainer }
+		);
 
 		// Update button states on initialization
-		await gameManager.updateContinueButtonState();
-		await gameManager.updateScoreboardButtonState();
+		await gameManager.updateMenuState(true);
 
 		// Handle URL routing
 		await handleUrlRouting(gameManager, db);
@@ -67,37 +94,54 @@ async function initializeApp(): Promise<void> {
 /**
  * Setup all event handlers for the application
  */
-async function setupEventHandlers(gameManager: GameManager): Promise<void> {
-	const btnStart = document.getElementById("btn-start");
-	const btnContinue = document.getElementById("btn-continue");
-	const btnScoreboard = document.getElementById("btn-scoreboard");
+async function setupEventHandlers(
+	gameManager: GameManager,
+	mainMenuComponent: MainMenuComponent,
+	scoreboardComponent: ScoreboardComponent,
+	shareComponent: SharePuzzleComponent,
+	hintComponent: HintComponent,
+	difficultyComponent: DifficultySelectionComponent,
+	containers: {
+		startScreen: HTMLElement;
+		scoreboardContainer: HTMLElement;
+		shareContainer: HTMLElement;
+		hintContainer: HTMLElement;
+	}
+): Promise<void> {
 	const btnBack = document.getElementById("btn-back");
-	const btnBackScoreboard = document.getElementById("btn-back-scoreboard");
-	const btnSolve = document.getElementById("btn-solve");
-	const copyLinkBtn = document.getElementById("copy-link-btn");
-
-	if (btnStart) {
-		btnStart.addEventListener("click", async () => {
-			const difficulty = await modal.selectDifficulty();
+	mainMenuComponent.init({
+		onStart: async () => {
+			const difficulty = await difficultyComponent.requestSelection();
 			if (difficulty !== null) {
 				gameManager.startNewGame(difficulty);
 			}
-		});
-	}
+		},
+		onContinue: () => gameManager.continueLastGame(),
+		onScoreboard: () => gameManager.showScoreboard(),
+	});
+	mainMenuComponent.mount(containers.startScreen);
 
-	if (btnContinue) {
-		// Check if there's an unfinished game to continue
-		await gameManager.updateContinueButtonState();
+	scoreboardComponent.init({
+		onBack: () => gameManager.returnToMenu(),
+		onContinue: (gameId) => gameManager.continueGame(gameId),
+		onTryAgain: (seed, difficulty) => gameManager.playAgain(seed, difficulty),
+		onTryAgainDifficulty: (difficulty) =>
+			gameManager.playAgainDifficulty(difficulty),
+		formatElapsedTime,
+	});
+	scoreboardComponent.mount(containers.scoreboardContainer);
 
-		btnContinue.addEventListener("click", () => gameManager.continueLastGame());
-	}
+	shareComponent.init({});
+	shareComponent.mount(containers.shareContainer);
 
-	if (btnScoreboard) {
-		// Check if there are games to display in scoreboard
-		await gameManager.updateScoreboardButtonState();
+	hintComponent.init({
+		onConfirmHint: () => gameManager.showHint(),
+	});
+	hintComponent.mount(containers.hintContainer);
+	hintComponent.update({ isEnabled: true, label: "Hint" });
 
-		btnScoreboard.addEventListener("click", () => gameManager.showScoreboard());
-	}
+	difficultyComponent.init({});
+	difficultyComponent.mount(document.body);
 
 	if (btnBack) {
 		btnBack.addEventListener(
@@ -106,51 +150,6 @@ async function setupEventHandlers(gameManager: GameManager): Promise<void> {
 		);
 	}
 
-	if (btnBackScoreboard) {
-		btnBackScoreboard.addEventListener(
-			"click",
-			async () => await gameManager.returnToMenu()
-		);
-	}
-
-	if (btnSolve) {
-		btnSolve.addEventListener("click", async () => {
-			const confirmed = await modal.confirm(
-				"Use Hint",
-				"Do you want to reveal one number? This will count as a hint used."
-			);
-
-			if (confirmed) {
-				gameManager.showHint();
-			}
-		});
-	}
-
-	if (copyLinkBtn) {
-		copyLinkBtn.addEventListener("click", async () => {
-			const shareLink = document.getElementById(
-				"share-link"
-			) as HTMLInputElement;
-			if (shareLink) {
-				try {
-					await navigator.clipboard.writeText(shareLink.value);
-					copyLinkBtn.textContent = "Copied!";
-					copyLinkBtn.classList.add("copied");
-
-					setTimeout(() => {
-						copyLinkBtn.textContent = "Copy";
-						copyLinkBtn.classList.remove("copied");
-					}, 2000);
-				} catch (error) {
-					console.error("Failed to copy link:", error);
-					// Fallback: select the text
-					shareLink.select();
-					shareLink.setSelectionRange(0, 99999);
-					alert("Link selected. Press Ctrl+C to copy.");
-				}
-			}
-		});
-	}
 }
 
 /**

@@ -51,6 +51,19 @@ export function generateUUID(): string {
 }
 
 /**
+ * Format an elapsed time in seconds as an HH:MM:SS string.
+ */
+export function formatElapsedTime(totalSeconds: number): string {
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+
+	return `${hours.toString().padStart(2, "0")}:${minutes
+		.toString()
+		.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
+/**
  * Parse URL parameters for shareable puzzle functionality
  * Returns seed and difficulty if both are valid, null otherwise
  */
